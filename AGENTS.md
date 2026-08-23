@@ -1,31 +1,45 @@
 # Objetivo
-Roteamento de chaves de APIs leves e simples, para funcionar para termux
+Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no Termux (motivação: ferramentas comuns quebram no Termux por exigirem Rust para compilar).
+
+# Comandos
+- Instalar (dev): `pip install -e .`
+- Todos os testes: `python -m unittest discover -s tests -v`
+- Um módulo de teste: `python -m unittest tests.test_<modulo>`
+- Sem lint (decisão: não adicionar)
 
 # Tech
-- Usar python puro sem libs, sem requirements.txt
-- Usar ~/.config/ai-rotation-key/config.json
-- Python >=3.14.6 (opcional)
-- Ser um CLI cinfiguravel, init (cria config.json de exemplo), edit (abre config.json), start (iniciar servidor)
-- Tests unitarios e de integracao
-- Estrutura simples de pastas src/cli.py, main.py, utils/__init__ (barrel), utils/cada_funcao.py
-- README.md simples com instalacao via github, comandos e motivação (erro termux por causa do rust)
-- conventional commits
-- sem lint
+- Python puro: ZERO dependências, runtime e dev. Sem requirements.txt
+  - Única exceção: setuptools como build-backend do empacotamento (nativo do Python)
+- Empacotamento: pyproject.toml com `[project.scripts]`; o CLI vira comando `ai-rotation-key` após `pip install -e .`
+- Python alvo: 3.14.6 (versão instalada neste Termux)
+- CLI: `init` (cria config.json de exemplo), `edit` (abre o config), `start` (sobe servidor), `export` (registra o provider no opencode)
+  - Parsing com argparse
+  - `edit` usa `$EDITOR` com fallback `vi` (subprocess.run)
+  - `export` adiciona este servidor como provider em ~/.config/opencode/config.json: lê o JSON existente, checa se o provider já existe antes de adicionar (idempotente, não duplica), preserva os demais providers e escreve de volta com módulo json
+- Config: ~/.config/ai-rotation-key/config.json (ler/escrever com módulo json)
+  - Formato: {"model-keys": {"<nome-modelo>": ["sk-chave1", "sk-chave2"]}}
+  - Chave por nome de modelo — formato escolhido para integração com o opencode
+- HTTP 100% stdlib: servidor com http.server.ThreadingHTTPServer, chamadas upstream com urllib.request
+- Rotação: round-robin simples por modelo — cada request usa a próxima chave da lista do modelo pedido, ciclicamente
+- Testes: unittest stdlib, unitários + integração
+
+# Estrutura
+- main.py (entrypoint), src/cli.py, src/utils/__init__.py (barrel) + src/utils/<cada_funcao>.py
+- tests/, tmp/ (ignorado pelo git)
+
+# Convenções
+- Conventional commits
+- README.md simples: instalação direta via `pip install git+https://github.com/brunodavi/ai-rotation-key.git`, comandos e motivação (erro no Termux por causa do Rust)
 
 # Agent
-- Usar ./tmp para guardar informações e validações sobre apis/documentações e seus comtratos reais
-    - ./tmp/spikes validacoes encontradas com .md
-    - ./tmp/apis/<nome> pastas com request response
-    - ./tmp/scripts para validar uma lib nativa do python ou debug
-- Sempre validar o comportamento real antes de asumir
-- Sempre seguir TDD a risca
-    - Validação do comportamento real
-    - RED (erro na acersao, stub minimo necessario)
-    - GREEN
-    - REFACTOR
-
-# Harness
-- Usado para validar comportamento opencode
+- Usar ./tmp para guardar informações e validações sobre APIs/documentações e seus contratos reais
+    - ./tmp/spikes: validações encontradas em .md
+    - ./tmp/apis/<nome>: pastas com request/response
+    - ./tmp/scripts: validar lib nativa do Python ou debug
+    - ./tmp/repos: clones shallow de repositórios de referência, só para leitura (HydraGemini, LiteLLM)
+- Sempre validar o comportamento real antes de assumir
+- Sempre seguir TDD à risca: validação do comportamento real → RED (erro na asserção, stub mínimo necessário) → GREEN → REFACTOR
+- Projeto também usado como harness para validar comportamento do opencode
 
 # Modelos/Gateways
 - [ ] Gemini
@@ -36,6 +50,6 @@ Roteamento de chaves de APIs leves e simples, para funcionar para termux
 - [ ] Deep Seek
 - [ ] Qwen
 
-# Repositórios de Referencia
+# Repositórios de Referência
 - HydraGemini
 - LiteLLM
