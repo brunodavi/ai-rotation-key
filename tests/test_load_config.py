@@ -6,7 +6,7 @@ import unittest
 from unittest import mock
 
 from src.utils.config_paths import DEFAULT_PORT, config_path
-from src.utils.load_config import load_config
+from src.utils.load_config import DEFAULT_BASE_URLS, load_config
 
 
 class LoadConfigTests(unittest.TestCase):
@@ -24,10 +24,10 @@ class LoadConfigTests(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.scratch, ignore_errors=True)
 
-    def _escrever(self, conteudo: str):
+    def _escrever(self, conteudo):
         path = config_path()
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(conteudo, encoding="utf-8")
+        path.write_text(conteudo if isinstance(conteudo, str) else json.dumps(conteudo), encoding="utf-8")
         return path
 
     def test_carrega_exemplo_gerado_pelo_init(self):
@@ -35,28 +35,50 @@ class LoadConfigTests(unittest.TestCase):
 
         init_config()
         dados = load_config()
+        self.assertEqual(dados["port"], 8792)
+        gemini = dados["providers"]["gemini"]
+        self.assertEqual(gemini["api-keys"], ["sk-exemplo-1", "sk-exemplo-2"])
+        self.assertIn("gemini-3.5-flash", gemini["models"])
+
+    def test_base_url_default_do_gemini_e_resolvida_na_carga(self):
+        self._escrever({
+            "providers": {
+                "gemini": {
+                    "api-keys": ["sk-a"],
+                    "models": ["gemini-3.5-flash"],
+                }
+            }
+        })
+        dados = load_config()
         self.assertEqual(
-            dados,
-            {
-                "model-keys": {"gemini-3.5-flash": ["sk-exemplo-1", "sk-exemplo-2"]},
-                "port": 8792,
-            },
+            dados["providers"]["gemini"]["base-url"],
+            "https://generativelanguage.googleapis.com/v1beta/openai",
         )
 
-    def test_port_ausente_vira_default(self):
-        self._escrever(json.dumps({"model-keys": {"m": ["sk-a"]}}))
+    def test_base_url_customizada_preservada(self):
+        self._escrever({
+            "providers": {
+                "minha-caixa": {
+                    "base-url": "http://10.0.0.5:8000/v1",
+                    "api-keys": ["sk-a"],
+                    "models": ["modelo-local"],
+                }
+            }
+        })
         dados = load_config()
-        self.assertEqual(dados["port"], DEFAULT_PORT)
-        self.assertEqual(dados["port"], 8792)
+        self.assertEqual(dados["providers"]["minha-caixa"]["base-url"], "http://10.0.0.5:8000/v1")
 
-    def test_port_customizada_e_normalizada_para_int(self):
-        self._escrever(json.dumps({"model-keys": {"m": ["sk-a"]}, "port": 9999}))
-        self.assertEqual(load_config()["port"], 9999)
+    def test_port_ausente_vira_default(self):
+        self._escrever({"providers": {"gemini": {"api-keys": ["sk-a"], "models": ["m"]}}})
+        self.assertEqual(load_config()["port"], DEFAULT_PORT)
 
     def test_port_invalida_levanta_value_error(self):
         for ruim in ("abc", 0, -1, 1.5, None):
             with self.subTest(port=ruim):
-                self._escrever(json.dumps({"model-keys": {"m": ["sk-a"]}, "port": ruim}))
+                self._escrever({
+                    "port": ruim,
+                    "providers": {"gemini": {"api-keys": ["sk-a"], "models": ["m"]}},
+                })
                 with self.assertRaises(ValueError):
                     load_config()
 
@@ -66,36 +88,85 @@ class LoadConfigTests(unittest.TestCase):
         self.assertIn("init", str(ctx.exception))
 
     def test_json_quebrado_levanta_value_error(self):
-        self._escrever("{model-keys: quebrado")
+        self._escrever("{providers: quebrado")
         with self.assertRaises(ValueError):
             load_config()
 
-    def test_model_keys_ausente_levanta_value_error(self):
-        self._escrever(json.dumps({"port": 8792}))
-        with self.assertRaises(ValueError):
-            load_config()
-
-    def test_model_keys_invalido_levanta_value_error(self):
-        casos = [
-            {},
-            "texto",
-            {"m": "sk-string"},
-            {"m": []},
-            {"m": [1, 2]},
-            {"": ["sk-a"]},
-        ]
-        for model_keys in casos:
-            with self.subTest(model_keys=model_keys):
-                self._escrever(json.dumps({"model-keys": model_keys}))
+    def test_providers_ausente_ou_vazio_levanta_value_error(self):
+        for providers in (None, {}, "texto"):
+            with self.subTest(providers=providers):
+                payload = {} if providers is None else {"providers": providers}
+                self._escrever(payload)
                 with self.assertRaises(ValueError):
                     load_config()
 
+    def test_provider_com_campos_invalidos_levanta_value_error(self):
+        casos = [
+            {"api-keys": [], "models": ["m"]},
+            {"api-keys": ["sk"], "models": []},
+            {"api-keys": "sk-string", "models": ["m"]},
+            {"api-keys": [1], "models": ["m"]},
+            {"api-keys": ["sk"], "models": ""},
+            {"api-keys": ["sk"]},
+            {"models": ["m"]},
+        ]
+        for provider in casos:
+            with self.subTest(provider=provider):
+                self._escrever({"providers": {"gemini": provider}})
+                with self.assertRaises(ValueError):
+                    load_config()
+
+    def test_provider_desconhecido_sem_base_url_levanta_value_error(self):
+        self._escrever({
+            "providers": {"fornecedor-x": {"api-keys": ["sk-a"], "models": ["m"]}}
+        })
+        with self.assertRaises(ValueError) as ctx:
+            load_config()
+        self.assertIn("base-url", str(ctx.exception))
+
+    def test_modelo_duplicado_entre_providers_levanta_value_error(self):
+        self._escrever({
+            "providers": {
+                "gemini": {"api-keys": ["sk-a"], "models": ["comum", "só-gemini"]},
+                "openai": {
+                    "base-url": "https://api.openai.com/v1",
+                    "api-keys": ["sk-b"],
+                    "models": ["comum"],
+                },
+            }
+        })
+        with self.assertRaises(ValueError) as ctx:
+            load_config()
+        self.assertIn("comum", str(ctx.exception))
+
+    def test_formato_antigo_model_keys_rejeitado_com_orientacao(self):
+        self._escrever({"model-keys": {"gemini-3.5-flash": ["sk-velha"]}})
+        with self.assertRaises(ValueError) as ctx:
+            load_config()
+        mensagem = str(ctx.exception)
+        self.assertIn("model-keys", mensagem)
+        self.assertIn("providers", mensagem)
+
+    def test_defaults_conhecem_gemini(self):
+        self.assertIn(
+            "https://generativelanguage.googleapis.com/v1beta/openai",
+            DEFAULT_BASE_URLS.values(),
+        )
+
     def test_path_explicito_sobrepoe_default(self):
         alvo = self.scratch / "outro.json"
-        alvo.write_text(json.dumps({"model-keys": {"x": ["sk-z"]}, "port": 7000}), encoding="utf-8")
+        alvo.write_text(json.dumps({
+            "port": 7000,
+            "providers": {"gemini": {"api-keys": ["sk-z"], "models": ["x"]}},
+        }), encoding="utf-8")
         dados = load_config(alvo)
-        self.assertEqual(dados["model-keys"], {"x": ["sk-z"]})
         self.assertEqual(dados["port"], 7000)
+        self.assertEqual(list(dados["providers"]), ["gemini"])
+
+    def test_config_path_continua_no_lugar_de_sempre(self):
+        from src.utils.config_paths import config_path
+
+        self.assertEqual(config_path().name, "config.json")
 
 
 if __name__ == "__main__":

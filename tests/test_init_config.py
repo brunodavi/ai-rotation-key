@@ -32,14 +32,22 @@ class InitConfigTests(unittest.TestCase):
         self.assertEqual(
             dados,
             {
-                "model-keys": {"gemini-3.5-flash": ["sk-exemplo-1", "sk-exemplo-2"]},
                 "port": 8792,
+                "providers": {
+                    "gemini": {
+                        "api-keys": ["sk-exemplo-1", "sk-exemplo-2"],
+                        "models": ["gemini-3.5-flash", "gemini-3.1-flash-lite"],
+                    }
+                },
             },
         )
 
     def test_nao_sobrescreve_config_existente(self):
         path, created = init_config()
-        custom = {"model-keys": {"outro": ["sk-x"]}, "port": 9999}
+        custom = {
+            "port": 9999,
+            "providers": {"outro": {"base-url": "http://x/v1", "api-keys": ["sk-x"], "models": ["m"]}},
+        }
         path.write_text(json.dumps(custom), encoding="utf-8")
         path2, created2 = init_config()
         self.assertFalse(created2)
