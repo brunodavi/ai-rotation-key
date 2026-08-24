@@ -65,6 +65,12 @@ class RoundRobinTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             RoundRobin({"vazio": []})
 
+    def test_count_devolve_quantidade_de_chaves_do_modelo(self):
+        self.assertEqual(self.rr.count("m-tres"), 3)
+        self.assertEqual(self.rr.count("m-um"), 1)
+        with self.assertRaises(KeyError):
+            self.rr.count("nao-existe")
+
 
 if __name__ == "__main__":
     unittest.main()
