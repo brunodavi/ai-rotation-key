@@ -93,6 +93,7 @@ class MockServer:
         self._server.daemon_threads = True
         self._server.registrations = self._rotas
         self._server.requests = []
+        self.requests = self._server.requests
         self.port = self._server.server_address[1]
         self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
         self._thread.start()
