@@ -14,26 +14,26 @@ SyncResultFake = namedtuple("SyncResultFake", "relatorios salvo houve_erro path"
 class CliRoutingTests(unittest.TestCase):
     def test_subcomandos_disparam_handlers_corretos(self):
         casos = [
-            (["init"], "init_config"),
-            (["edit"], "edit_config"),
-            (["start"], "start_server"),
-            (["export"], "export_provider"),
+            (["init"], "src.commands.init", "init_config"),
+            (["edit"], "src.commands.edit", "edit_config"),
+            (["start"], "src.commands.start", "start_server"),
+            (["export"], "src.commands.export", "export_provider"),
         ]
-        for argv, nome in casos:
+        for argv, modulo, nome in casos:
             with self.subTest(comando=argv[0]):
-                with mock.patch(f"src.cli.{nome}", return_value=None) as handler:
+                with mock.patch(f"{modulo}.{nome}", return_value=None) as handler:
                     main(argv)
                 handler.assert_called_once_with()
 
     def test_sync_models_sem_arg_passa_apenas_none(self):
         fake = SyncResultFake({}, False, False, pathlib.Path("/tmp/x"))
-        with mock.patch("src.cli.sync_models", return_value=fake) as handler:
+        with mock.patch("src.commands.sync_models.sync_models", return_value=fake) as handler:
             main(["sync-models"])
         handler.assert_called_once_with(apenas=None)
 
     def test_sync_models_com_provider_passa_apenas(self):
         fake = SyncResultFake({}, False, False, pathlib.Path("/tmp/x"))
-        with mock.patch("src.cli.sync_models", return_value=fake) as handler:
+        with mock.patch("src.commands.sync_models.sync_models", return_value=fake) as handler:
             main(["sync-models", "gemini"])
         handler.assert_called_once_with(apenas="gemini")
 
@@ -49,7 +49,7 @@ class CliRoutingTests(unittest.TestCase):
             pathlib.Path("/tmp/opencode"),
         )
         saida = io.StringIO()
-        with mock.patch("src.cli.sync_models", return_value=fake), contextlib.redirect_stdout(saida):
+        with mock.patch("src.commands.sync_models.sync_models", return_value=fake), contextlib.redirect_stdout(saida):
             with self.assertRaises(SystemExit) as ctx:
                 main(["sync-models"])
         self.assertEqual(ctx.exception.code, 1)
@@ -63,7 +63,7 @@ class CliRoutingTests(unittest.TestCase):
 
     def test_sync_models_provider_desconhecido_sai_com_mensagem(self):
         saida = io.StringIO()
-        with mock.patch("src.cli.sync_models", side_effect=ValueError("provider 'x' não está no config — opções: gemini")):
+        with mock.patch("src.commands.sync_models.sync_models", side_effect=ValueError("provider 'x' não está no config — opções: gemini")):
             with contextlib.redirect_stdout(saida):
                 with self.assertRaises(SystemExit) as ctx:
                     main(["sync-models", "x"])
@@ -72,7 +72,7 @@ class CliRoutingTests(unittest.TestCase):
 
     def test_retorno_do_handler_propagado(self):
         sentinela = object()
-        with mock.patch("src.cli.init_config", return_value=sentinela):
+        with mock.patch("src.commands.init.init_config", return_value=sentinela):
             self.assertIs(main(["init"]), sentinela)
 
     def test_comando_invalido_sai_com_codigo_2(self):
@@ -94,7 +94,7 @@ class CliRoutingTests(unittest.TestCase):
 class CliOutputTests(unittest.TestCase):
     def test_init_criado_imprime_caminho(self):
         caminho = pathlib.Path("/tmp/fake") / "config.json"
-        with mock.patch("src.cli.init_config", return_value=(caminho, True)):
+        with mock.patch("src.commands.init.init_config", return_value=(caminho, True)):
             saida = io.StringIO()
             with contextlib.redirect_stdout(saida):
                 main(["init"])
@@ -103,7 +103,7 @@ class CliOutputTests(unittest.TestCase):
 
     def test_init_ja_existente_avisa_sem_sobrescrever(self):
         caminho = pathlib.Path("/tmp/fake") / "config.json"
-        with mock.patch("src.cli.init_config", return_value=(caminho, False)):
+        with mock.patch("src.commands.init.init_config", return_value=(caminho, False)):
             saida = io.StringIO()
             with contextlib.redirect_stdout(saida):
                 main(["init"])
@@ -119,7 +119,7 @@ class CliOutputTests(unittest.TestCase):
             ("inalterado", "já estava configurado"),
         ):
             with self.subTest(acao=acao):
-                with mock.patch("src.cli.export_provider", return_value=(caminho, acao)):
+                with mock.patch("src.commands.export.export_provider", return_value=(caminho, acao)):
                     saida = io.StringIO()
                     with contextlib.redirect_stdout(saida):
                         main(["export"])
