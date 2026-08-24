@@ -82,6 +82,14 @@ class ForwardRequestTests(unittest.TestCase):
         self.assertEqual(status, 502)
         self.assertIn(b"error", body)
 
+    def test_envia_user_agent_do_projeto_nao_python(self):
+        rr = self._rr(["sk-a"])
+        self.upstream.register("POST", "/v1/chat/completions", status=200, body={"ok": 1})
+        forward_request(rr, "modelo", self.payload, url=self.url)
+        ua = self.upstream.requests[0]["headers"].get("User-Agent", "")
+        self.assertTrue(ua.startswith("ai-rotation-key/"), f"User-Agent inesperado: {ua!r}")
+        self.assertNotIn("Python", ua)
+
     def test_default_upstream_e_o_endpoint_openai_compativel_do_gemini(self):
         self.assertEqual(
             DEFAULT_UPSTREAM,

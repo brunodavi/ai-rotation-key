@@ -1,6 +1,8 @@
 import json
 from urllib import error, request
 
+from src.utils.user_agent import USER_AGENT
+
 
 class FetchModelsError(Exception):
     def __init__(self, motivo, status=None):
@@ -15,6 +17,7 @@ def fetch_models(base_url, api_key, timeout=30):
         headers={
             "Authorization": f"Bearer {api_key}",
             "Accept": "application/json",
+            "User-Agent": USER_AGENT,
         },
         method="GET",
     )

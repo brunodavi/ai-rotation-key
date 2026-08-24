@@ -46,7 +46,9 @@ O comando canônico é `ai-rotation-key`; `airkey` é o atalho — use o que pre
 
 ### Config
 
-`~/.config/ai-rotation-key/config.json` — providers com suas chaves e modelos. Round-robin **por provider**: os modelos de um provider dividem o ciclo das chaves dele. `base-url` é opcional para `gemini` e `openrouter` (defaults embutidos) e obrigatório para outros providers.
+`~/.config/ai-rotation-key/config.json` — providers com suas chaves e modelos. Round-robin **por provider**: os modelos de um provider dividem o ciclo das chaves dele. `base-url` é opcional para `gemini`, `openrouter` e `opencode-zen` (defaults embutidos) e obrigatório para outros providers.
+
+> Dica OpenCode Zen: modelos free funcionam até com a string `"public"` no lugar da key (`"api-keys": ["public"]`) — é o mesmo acesso anônimo que o próprio opencode usa, limitado por IP pelo gateway. O proxy envia um `User-Agent` próprio em todas as chamadas upstream (requisito do Cloudflare do zen).
 
 ```json
 {

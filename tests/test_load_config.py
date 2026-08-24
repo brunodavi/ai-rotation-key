@@ -70,6 +70,21 @@ class LoadConfigTests(unittest.TestCase):
             "https://openrouter.ai/api/v1",
         )
 
+    def test_base_url_default_do_opencode_zen_e_resolvida_na_carga(self):
+        self._escrever({
+            "providers": {
+                "opencode-zen": {
+                    "api-keys": ["sk-zen"],
+                    "models": ["laguna-s-2.1-free"],
+                }
+            }
+        })
+        dados = load_config()
+        self.assertEqual(
+            dados["providers"]["opencode-zen"]["base-url"],
+            "https://opencode.ai/zen/v1",
+        )
+
     def test_base_url_customizada_preservada(self):
         self._escrever({
             "providers": {
@@ -197,6 +212,9 @@ class LoadConfigTests(unittest.TestCase):
 
     def test_defaults_conhecem_openrouter(self):
         self.assertIn("https://openrouter.ai/api/v1", DEFAULT_BASE_URLS.values())
+
+    def test_defaults_conhecem_opencode_zen(self):
+        self.assertIn("https://opencode.ai/zen/v1", DEFAULT_BASE_URLS.values())
 
     def test_path_explicito_sobrepoe_default(self):
         alvo = self.scratch / "outro.json"

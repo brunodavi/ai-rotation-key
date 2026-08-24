@@ -6,6 +6,7 @@ from src.utils.config_paths import DEFAULT_PORT, config_path
 DEFAULT_BASE_URLS = {
     "gemini": "https://generativelanguage.googleapis.com/v1beta/openai",
     "openrouter": "https://openrouter.ai/api/v1",
+    "opencode-zen": "https://opencode.ai/zen/v1",
 }
 
 _EXEMPLO = {

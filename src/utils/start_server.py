@@ -10,6 +10,7 @@ from src.utils.round_robin import RoundRobin
 from src.utils.sanitize_request import sanitize_request
 from src.utils.sanitize_response import sanitize_response_payload, sanitize_sse_line
 from src.utils.signature_cache import SignatureCache
+from src.utils.user_agent import USER_AGENT
 
 _CHAT_ROTAS = ("/chat/completions", "/v1/chat/completions")
 _HEADERS_HOP_BY_HOP = ("content-length", "transfer-encoding", "content-encoding")
@@ -88,6 +89,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
                 headers={
                     "Content-Type": "application/json",
                     "Authorization": f"Bearer {chave}",
+                    "User-Agent": USER_AGENT,
                 },
                 method="POST",
             )
