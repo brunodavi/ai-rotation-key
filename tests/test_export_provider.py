@@ -1,3 +1,5 @@
+import contextlib
+import io
 import json
 import os
 import pathlib
@@ -79,6 +81,38 @@ class ExportProviderTests(unittest.TestCase):
             bloco["models"],
             {"openrouter/poolside/laguna-s-2.1:free": {"name": "openrouter/laguna-s-2.1:free"}},
         )
+
+    def test_avisa_quando_nomes_de_exibicao_colidem(self):
+        self._nosso_config(
+            {
+                "openrouter": {
+                    "api-keys": ["sk-1"],
+                    "models": ["vendor-a/tool-x", "vendor-b/tool-x"],
+                },
+            },
+            port=9000,
+        )
+        saida = io.StringIO()
+        with contextlib.redirect_stdout(saida):
+            _, acao = export_provider()
+        self.assertEqual(acao, "criado")
+        texto = saida.getvalue()
+        self.assertIn("aviso", texto.lower())
+        self.assertIn("openrouter/tool-x", texto)
+        self.assertIn("openrouter/vendor-a/tool-x", texto)
+        self.assertIn("openrouter/vendor-b/tool-x", texto)
+
+    def test_sem_colisao_nao_imprime_aviso(self):
+        self._nosso_config(
+            {
+                "gemini": {"api-keys": ["sk-1"], "models": ["m"]},
+            },
+            port=9000,
+        )
+        saida = io.StringIO()
+        with contextlib.redirect_stdout(saida):
+            export_provider()
+        self.assertNotIn("aviso", saida.getvalue().lower())
 
     def test_adiciona_quando_config_existe_sem_nosso_provider(self):
         self._nosso_config({"gemini": {"api-keys": ["sk-a"], "models": ["m"]}})
