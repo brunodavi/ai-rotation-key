@@ -81,6 +81,11 @@ class FalhasStagedTests(unittest.TestCase):
         aninhado = self._arquivo("sub/pasta.txt", "")
         self.assertEqual(commit_hook.falhas_de_staged([normal, aninhado]), [])
 
+    def test_tmp_nunca_pode_ir_pro_staged(self):
+        falhas = commit_hook.falhas_de_staged(["tmp/apis/x/key.txt", "tmp"])
+        self.assertEqual(len(falhas), 2)
+        self.assertIn("tmp/", falhas[0])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -64,6 +64,9 @@ def falhas_de_staged(caminhos):
     """Recebe caminhos staged; retorna lista de problemas (vazia = limpo)."""
     falhas = []
     for caminho in caminhos:
+        if caminho == "tmp" or caminho.startswith("tmp/"):
+            falhas.append(f"tmp/ nunca vai pro repo (gitignore ou --no-verify se for intencional): {caminho!r}")
+            continue
         if re.fullmatch(r"[^A-Za-z._-]+", os.path.basename(caminho)):
             falhas.append(f"arquivo espúrio no staged: {caminho!r}")
             continue
