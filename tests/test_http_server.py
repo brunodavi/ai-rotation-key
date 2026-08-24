@@ -143,6 +143,94 @@ class HttpServerTests(unittest.TestCase):
         status, body = self._post("/outra/coisa", {"qualquer": 1})
         self.assertEqual(status, 404)
 
+    def test_assinatura_de_tool_call_e_reinjetada_no_proximo_request(self):
+        resposta = {
+            "choices": [{
+                "finish_reason": "tool_calls",
+                "message": {
+                    "role": "assistant",
+                    "content": " ",
+                    "tool_calls": [{
+                        "id": "call_g1",
+                        "type": "function",
+                        "function": {"name": "glob", "arguments": "{}"},
+                        "extra_content": {"google": {"thought_signature": "SIG-G"}},
+                    }],
+                },
+            }]
+        }
+        self.upstream.register("POST", "/v1/chat/completions", status=200, body=resposta)
+        status1, body1 = self._post(
+            "/v1/chat/completions",
+            {"model": "gemini-3.1-flash-lite", "messages": [{"role": "user", "content": "liste"}]},
+        )
+        self.assertEqual(status1, 200)
+        self.assertNotIn(b"extra_content", body1)
+
+        historico = {
+            "model": "gemini-3.1-flash-lite",
+            "messages": [
+                {"role": "user", "content": "liste"},
+                {
+                    "role": "assistant",
+                    "content": " ",
+                    "tool_calls": [{
+                        "id": "call_g1",
+                        "type": "function",
+                        "function": {"name": "glob", "arguments": "{}"},
+                    }],
+                },
+                {"role": "tool", "tool_call_id": "call_g1", "content": "[]"},
+            ],
+        }
+        self.upstream.register("POST", "/v1/chat/completions", status=200, body={"ok": True})
+        status2, _ = self._post("/v1/chat/completions", historico)
+        self.assertEqual(status2, 200)
+        enviado = json.loads(self.upstream.requests[-1]["body"])
+        tool_call = enviado["messages"][1]["tool_calls"][0]
+        self.assertEqual(tool_call["extra_content"], {"google": {"thought_signature": "SIG-G"}})
+
+    def test_stream_tambem_coleta_assinatura_para_reinjecao(self):
+        chunks = [
+            b'data: {"choices":[{"delta":{"tool_calls":[{"id":"call_s1","type":"function","function":{"name":"glob","arguments":"{}"},"extra_content":{"google":{"thought_signature":"SIG-S"}}}]},"index":0}]}\n\n',
+            b"data: [DONE]\n\n",
+        ]
+        self.upstream.register_stream("POST", "/v1/chat/completions", chunks)
+        req = urllib.request.Request(
+            self.base + "/v1/chat/completions",
+            data=json.dumps({
+                "model": "gemini-3.1-flash-lite",
+                "messages": [{"role": "user", "content": "liste"}],
+                "stream": True,
+            }).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=15) as res:
+            recebido = res.read()
+        self.assertNotIn(b"extra_content", recebido)
+
+        historico = {
+            "model": "gemini-3.1-flash-lite",
+            "messages": [
+                {"role": "user", "content": "liste"},
+                {
+                    "role": "assistant",
+                    "content": " ",
+                    "tool_calls": [{
+                        "id": "call_s1",
+                        "type": "function",
+                        "function": {"name": "glob", "arguments": "{}"},
+                    }],
+                },
+            ],
+        }
+        self.upstream.register("POST", "/v1/chat/completions", status=200, body={"ok": True})
+        self._post("/v1/chat/completions", historico)
+        enviado = json.loads(self.upstream.requests[-1]["body"])
+        tool_call = enviado["messages"][1]["tool_calls"][0]
+        self.assertEqual(tool_call["extra_content"], {"google": {"thought_signature": "SIG-S"}})
+
 
 if __name__ == "__main__":
     unittest.main()
