@@ -28,7 +28,7 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
 - Testes: unittest stdlib, unitários + integração
 
 # Estrutura
-- main.py (entrypoint), src/cli.py, src/utils/__init__.py (barrel) + src/utils/<cada_funcao>.py
+- main.py (entrypoint), src/cli.py (só argparse/wiring), src/commands/<comando>.py (lógica de cada comando CLI), src/utils/__init__.py (barrel) + src/utils/<cada_funcao>.py
 - tests/, tmp/ (ignorado pelo git)
 
 # Convenções
