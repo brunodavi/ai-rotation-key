@@ -1,13 +1,8 @@
 import json
 from pathlib import Path
 
+from src.providers import default_base_url
 from src.utils.config_paths import DEFAULT_PORT, config_path
-
-DEFAULT_BASE_URLS = {
-    "gemini": "https://generativelanguage.googleapis.com/v1beta/openai",
-    "openrouter": "https://openrouter.ai/api/v1",
-    "opencode-zen": "https://opencode.ai/zen/v1",
-}
 
 _EXEMPLO = {
     "port": 8792,
@@ -84,7 +79,7 @@ def _validar_providers(dados):
             raise ValueError(
                 f"'exclude-models' do provider '{nome}' deve ser lista de padrões (strings)"
             )
-        base_url = cfg.get("base-url") or DEFAULT_BASE_URLS.get(nome)
+        base_url = cfg.get("base-url") or default_base_url(nome)
         if not base_url:
             raise ValueError(
                 f"provider '{nome}' é desconhecido e não tem 'base-url' — informe uma, "

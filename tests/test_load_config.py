@@ -5,8 +5,9 @@ import shutil
 import unittest
 from unittest import mock
 
+from src.providers import default_base_url
 from src.utils.config_paths import DEFAULT_PORT, config_path
-from src.utils.load_config import DEFAULT_BASE_URLS, load_config
+from src.utils.load_config import load_config
 
 
 class LoadConfigTests(unittest.TestCase):
@@ -205,16 +206,16 @@ class LoadConfigTests(unittest.TestCase):
                 )
 
     def test_defaults_conhecem_gemini(self):
-        self.assertIn(
+        self.assertEqual(
+            default_base_url("gemini"),
             "https://generativelanguage.googleapis.com/v1beta/openai",
-            DEFAULT_BASE_URLS.values(),
         )
 
     def test_defaults_conhecem_openrouter(self):
-        self.assertIn("https://openrouter.ai/api/v1", DEFAULT_BASE_URLS.values())
+        self.assertEqual(default_base_url("openrouter"), "https://openrouter.ai/api/v1")
 
     def test_defaults_conhecem_opencode_zen(self):
-        self.assertIn("https://opencode.ai/zen/v1", DEFAULT_BASE_URLS.values())
+        self.assertEqual(default_base_url("opencode-zen"), "https://opencode.ai/zen/v1")
 
     def test_path_explicito_sobrepoe_default(self):
         alvo = self.scratch / "outro.json"
