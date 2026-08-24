@@ -93,6 +93,26 @@ Decisões do dono do projeto registradas como subtarefas; cada item = uma branch
 - [ ] `feat/custom-provider-traducao` — tradução completa de corpo request/response do custom provider
       via dot-path null-safe (extrair/renomear campos entre formatos não-OpenAI e o contrato do proxy).
 
+## Extras (pedidos posteriores — NÃO iniciar sem aprovação)
+- [ ] `refactor/providers-declarativos` — UNIFICAR os dois mundos (registro embutido × custom):
+      registro vira estrutura de DADOS declarativa (ex.: `{nome: {"base-url": ..., "sufixo-chat":
+      ..., "path-models": ..., "header-auth": ...}}`), consultável e SOBRESCRIVÍVEL por config.json;
+      provider customizado usa o MESMO schema inline. Objetivo do dono: alterar só isso já configura
+      os padrões de cada provider único — adicionar provider vira literalmente só config, sem código.
+      Substitui/absorve os módulos `src/providers/*.py` atuais (hoje só NAME + BASE_URL).
+      Executar DEPOIS/AJUNTO das partes de custom-provider (mesmo mecanismo).
+- [ ] `feat/init-por-provider` — `init` passa a gerar exemplo POR provider: `airkey init --gemini`
+      cria o config só com aquele provider (placeholders de key + modelos de exemplo + filter-models
+      sugeridos, vindos do registro). Se flags dinâmicas `--<nome>` não couberem bem no argparse,
+      fallback pré-aprovado: `init -p/--provider <nome>`.
+- [ ] `feat/edit-harness` — terminologia: opencode é o HARNESS, não provider. Trocar a flag
+      `edit --opencode` por forma autoexplicativa: preferir `edit --harness [nome]` (default
+      implícito: opencode); se não couber, `edit -H <harness>` ou similar. Atualizar help,
+      testes e README junto.
+- [ ] `chore/sem-mensagens-de-migracao` — REMOVER orientações de migração de formatos antigos
+      (model-keys, exclude-models): projeto criado recentemente, ninguém usa versão antiga.
+      Erros de formato devem apenas explicar como o formato ATUAL funciona, sem texto de migração.
+
 # Repositórios de Referência
 - HydraGemini
 - LiteLLM
