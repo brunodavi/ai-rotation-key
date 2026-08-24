@@ -4,7 +4,11 @@ import pathlib
 import unittest
 from unittest import mock
 
+from collections import namedtuple
+
 from src.cli import _build_parser, main
+
+SyncResultFake = namedtuple("SyncResultFake", "relatorios salvo houve_erro path")
 
 
 class CliRoutingTests(unittest.TestCase):
@@ -20,6 +24,51 @@ class CliRoutingTests(unittest.TestCase):
                 with mock.patch(f"src.cli.{nome}", return_value=None) as handler:
                     main(argv)
                 handler.assert_called_once_with()
+
+    def test_sync_models_sem_arg_passa_apenas_none(self):
+        fake = SyncResultFake({}, False, False, pathlib.Path("/tmp/x"))
+        with mock.patch("src.cli.sync_models", return_value=fake) as handler:
+            main(["sync-models"])
+        handler.assert_called_once_with(apenas=None)
+
+    def test_sync_models_com_provider_passa_apenas(self):
+        fake = SyncResultFake({}, False, False, pathlib.Path("/tmp/x"))
+        with mock.patch("src.cli.sync_models", return_value=fake) as handler:
+            main(["sync-models", "gemini"])
+        handler.assert_called_once_with(apenas="gemini")
+
+    def test_sync_models_imprime_relatorio_por_provider(self):
+        fake = SyncResultFake(
+            {
+                "gemini": {"adicionados": ["a", "b"], "excluidos": 31, "existentes": 2},
+                "outro": {"adicionados": [], "excluidos": 0, "existentes": 5},
+                "quebrado": {"erro": "boom", "status": 401},
+            },
+            True,
+            True,
+            pathlib.Path("/tmp/opencode"),
+        )
+        saida = io.StringIO()
+        with mock.patch("src.cli.sync_models", return_value=fake), contextlib.redirect_stdout(saida):
+            with self.assertRaises(SystemExit) as ctx:
+                main(["sync-models"])
+        self.assertEqual(ctx.exception.code, 1)
+        texto = saida.getvalue()
+        self.assertIn("gemini: +2 adicionados", texto)
+        self.assertIn("31 excluídos pelo exclude-models", texto)
+        self.assertIn("2 já existiam", texto)
+        self.assertIn("outro: inalterado", texto)
+        self.assertIn("quebrado: erro HTTP 401", texto)
+        self.assertIn(str(fake.path), texto)
+
+    def test_sync_models_provider_desconhecido_sai_com_mensagem(self):
+        saida = io.StringIO()
+        with mock.patch("src.cli.sync_models", side_effect=ValueError("provider 'x' não está no config — opções: gemini")):
+            with contextlib.redirect_stdout(saida):
+                with self.assertRaises(SystemExit) as ctx:
+                    main(["sync-models", "x"])
+        self.assertEqual(ctx.exception.code, 1)
+        self.assertIn("não está no config", saida.getvalue())
 
     def test_retorno_do_handler_propagado(self):
         sentinela = object()
