@@ -14,7 +14,12 @@ def _build_parser():
     )
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("init", help="Cria ~/.config/ai-rotation-key/config.json de exemplo")
-    sub.add_parser("edit", help="Abre o config no $EDITOR (fallback: vi)")
+    edit = sub.add_parser("edit", help="Abre o config no $EDITOR (fallback: vi)")
+    edit.add_argument(
+        "--opencode",
+        action="store_true",
+        help="Abre o config do opencode (~/.config/opencode/config.json) em vez do nosso",
+    )
     sub.add_parser("start", help="Sobe o servidor local")
     sub.add_parser("export", help="Registra este servidor como provider no opencode")
     sync = sub.add_parser(
