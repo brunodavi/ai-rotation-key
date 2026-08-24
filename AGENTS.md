@@ -37,10 +37,9 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
 - README.md simples: instalação direta via `pip install git+https://github.com/brunodavi/ai-rotation-key.git`, comandos e motivação (erro no Termux por causa do Rust)
 
 # Workflow TDD & Git
-- Uma branch por parte (`feat/<nome>` / `fix/<nome>`); commits entre os ciclos RED → GREEN → REFACTOR dentro da branch (`test:`, `feat:`, `refactor:`)
-- Merge na master SOMENTE após validação manual do usuário e confirmação explícita
-- Partes independentes em git worktrees sob `tmp/wt/<branch>`, implementadas por agentes em paralelo
-- Barrel `src/utils/__init__.py` NÃO é editado nas branches — imports diretos do módulo; consolidação acontece pós-merge na master
+- TDD à risca: validação do comportamento real → RED (erro na asserção, stub mínimo necessário) → GREEN → REFACTOR
+- Commits direto na MASTER (conventional commits `test:`/`feat:`/`refactor:`/`docs:`/`chore:`) — sem branches por parte nem worktrees/agentes paralelos (decisão do dono em experimento)
+- A cada ciclo comprovado — suíte verde + validação manual do dono — criar TAG marcando o estado estável
 - Testes de integração SEMPRE via `tests/mock_server.py`: rotas as-is com respostas registráveis, `reset()` por teste, sequenciais (1 worker, sem paralelismo)
 - Porta em teste: efêmera por padrão; se fixada via `AI_ROTATION_MOCK_PORT`, anti-colisão +1 (`find_free_port`)
 - NADA fora do projeto (Termux não tem /tmp): fixtures de HOME em `tmp/.scratch/`, nunca tempfile do sistema; servidor real deriva porta com +1 e loga a efetiva
@@ -64,15 +63,18 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
 - [ ] Qwen
 
 # Planejamento & Tarefas
-- Tarefas vivem em `TODO_LIST.md` (raiz do repo). Escrita NELE é EXCLUSIVA do agente `planner`
-  (`.opencode/agent/planner.md`).
-- Agente `planner`: investiga o projeto (código, testes, docs, tmp/spikes) + web, e registra tarefas
-  no TODO_LIST.md SEMPRE fechando escopo com perguntas ao dono até a tarefa ficar inequívoca para
-  quem for executar. Permissões: leitura de tudo, escrita SÓ em TODO_LIST.md, sem bash, sem subagentes,
-  nunca executa tarefas.
-- Fluxo: ideia vaga → sessão com `planner` (primário ou @planner) → tarefa especificada na fila →
-  outra sessão cria a branch (`feat/<nome>` etc.) e executa conforme Workflow TDD & Git →
-  ao concluir, pedir ao `planner` para marcar `[x]` e mover para Concluídas.
+- Tarefas vivem em `tmp/todo-list/fila/` (gitignored, local ao dono) — NÃO há TODO_LIST.md versionado
+  e NÃO existe registro de concluídas: o histórico mora no git (commits + tags); tarefa pronta = arquivo apagado
+  - Ordem = prioridade via prefixo numérico (`<n>-<tipo>-<nome>.md`); ideia nova entra SEMPRE no fim;
+    reordenar = renomear prefixos
+  - Tarefas com `> ⚠️ NÃO INICIAR sem ok explícito do dono` no topo exigem aprovação antes de começar
+- Agente `planner` (`.opencode/agent/planner.md`): investiga projeto + web + spikes e escreve as
+  tarefas SEMPRE fechando escopo com perguntas ao dono. Permissões: leitura de tudo, escrita SÓ em
+  `tmp/todo-list/fila/`, bash só para `mv` dentro da pasta, sem subagentes, nunca executa.
+- Cada arquivo de tarefa nasce inteiro num único write — nunca editar parcialmente; mudar = reescrever
+- Fluxo: ideia vaga → sessão com `planner` (primário ou @planner) → arquivo no fim da fila →
+  implementação direto na master conforme Workflow TDD & Git → validação do dono → tag do ciclo →
+  arquivo da tarefa apagado
 
 # Repositórios de Referência
 - HydraGemini
