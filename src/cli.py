@@ -1,6 +1,9 @@
 import argparse
 
-from src.utils import edit_config, export_provider, init_config, start_server
+from src.utils.edit_config import edit_config
+from src.utils.export_provider import export_provider
+from src.utils.init_config import init_config
+from src.utils.start_server import start_server
 
 
 def _build_parser():
@@ -24,4 +27,11 @@ def main(argv=None):
         "start": start_server,
         "export": export_provider,
     }
-    handlers[args.command]()
+    resultado = handlers[args.command]()
+    if args.command == "init":
+        path, created = resultado
+        if created:
+            print(f"config criado em {path}")
+        else:
+            print(f"config já existe em {path} — sem alterar")
+    return resultado
