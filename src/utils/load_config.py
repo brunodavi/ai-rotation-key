@@ -4,6 +4,9 @@ from pathlib import Path
 from src.utils.config_paths import DEFAULT_PORT, config_path
 
 
+DEFAULT_BASE_URLS = {}
+
+
 def load_config(path=None):
     if path is None:
         path = config_path()
