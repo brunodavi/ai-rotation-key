@@ -40,15 +40,26 @@ ai-rotation-key export
 
 ### Config
 
-`~/.config/ai-rotation-key/config.json` — mapa de nome de modelo → lista de chaves, pensado para integração com o opencode. Round-robin por modelo: cada request usa a próxima chave da lista do modelo pedido, ciclicamente.
+`~/.config/ai-rotation-key/config.json` — providers com suas chaves e modelos. Round-robin **por provider**: os modelos de um provider dividem o ciclo das chaves dele. `base-url` é opcional para `gemini` (default embutido) e obrigatório para outros providers.
 
 ```json
 {
-  "model-keys": {
-    "<nome-modelo>": ["sk-sua-chave-1", "sk-sua-chave-2"]
+  "port": 8792,
+  "providers": {
+    "gemini": {
+      "api-keys": ["sk-exemplo-1", "sk-exemplo-2"],
+      "models": ["gemini-3.5-flash", "gemini-3.1-flash-lite"]
+    },
+    "openai": {
+      "base-url": "https://api.openai.com/v1",
+      "api-keys": ["sk-sua-chave-openai"],
+      "models": ["gpt-4o-mini"]
+    }
   }
 }
 ```
+
+> v0.2.0: o formato antigo com `model-keys` foi removido — recrie o config com `airkey init`.
 
 ## Como funciona
 

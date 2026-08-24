@@ -11,7 +11,7 @@ flowchart TD
     subgraph proxy["proxy local ai-rotation-key · escuta em 127.0.0.1"]
         sr["sanitize_request<br/>whitelist de campos ·<br/>tools legadas → formato atual"]
         inj["signature_cache.inject<br/>thought_signature no histórico"]
-        rr["RoundRobin.next(modelo)<br/>próxima chave do pool"]
+        rr["RoundRobin.next(provider)<br/>próxima chave do pool<br/>do provider do modelo"]
         send["forward_request ou<br/>_repassar_stream"]
         st{"status do<br/>upstream?"}
         col["sanitize_response<br/>remove extra_content"]
@@ -51,6 +51,7 @@ flowchart TD
 ## Políticas principais
 
 - **Rotação**: só em HTTP 429 e erro de conexão. 400 (chave inválida/request ruim) e 404 (modelo morto) são repassados ao cliente imediatamente — rotacionar neles só gastaria o pool à toa.
+- **Multi-provider**: cada provider tem seu próprio pool de chaves e upstream (`base-url`; gemini tem default embutido, outros precisam declarar). O modelo recebido resolve para exatamente um provider — duplicado no config é erro de carga. Round-robin é por provider: os modelos dele dividem o mesmo ciclo.
 - **thought_signature** (Gemini 3.x): a API exige que a assinatura devolvida junto ao functionCall volte no histórico do turno seguinte. O proxy remove o campo da resposta (cliente não vê `extra_content`) e o reinjeta sozinho na próxima requisição.
 - **Segurança**: escuta somente em `127.0.0.1`; chaves ficam apenas no config local.
 - **Porta**: vem do config (padrão 8792); se ocupada, deriva com +1 e avisa no log.
