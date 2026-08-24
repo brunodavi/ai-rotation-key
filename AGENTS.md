@@ -19,7 +19,7 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
     - Validado ao vivo (tmp/spikes/opencode-custom-provider.md): config.json É carregado pelo opencode; usar id próprio + npm "@ai-sdk/openai-compatible" + baseURL http://127.0.0.1:<porta>/v1; NUNCA sobrescrever providers embutidos (openai usa /v1/responses e hijacka o small_model interno); models saem das chaves do model-keys
 - Config: ~/.config/ai-rotation-key/config.json (ler/escrever com módulo json)
   - Formato v0.2.0: {"port": 8792, "providers": {"<nome>": {"base-url": "...", "api-keys": [...], "models": [...]}}}
-  - base-url opcional só para gemini (default embutido); modelo duplicado entre providers = erro de carga
+  - base-url opcional para providers com default no registro (gemini, openrouter, opencode-zen — ver src/providers/); modelo duplicado entre providers = erro de carga
   - Rotação por provider (modelos do mesmo provider dividem o ciclo); formato antigo model-keys rejeitado
 - HTTP 100% stdlib: servidor com http.server.ThreadingHTTPServer, chamadas upstream com urllib.request
 - Rotação: round-robin simples por modelo — cada request usa a próxima chave da lista do modelo pedido, ciclicamente
@@ -70,7 +70,7 @@ Decisões do dono do projeto registradas como subtarefas; cada item = uma branch
 - [ ] `refactor/commands` — mover a lógica de cada comando do CLI para `src/commands/<nome>.py`
       (init, edit, start, export, sync-models); `src/cli.py` fica só com argparse/wiring.
       ZERO mudança de comportamento; testes existentes continuam passando sem edição de asserções.
-- [ ] `refactor/providers` — centralizar o contrato real por provider em um registro único
+- [x] `refactor/providers` — centralizar o contrato real por provider em um registro único
       (módulo por provider embutido: base-url default, auth, quirks como UA); um humano adiciona
       provider novo criando UM arquivo. `DEFAULT_BASE_URLS` migra pra cá (load_config passa a consultar).
 
