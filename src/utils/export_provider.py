@@ -1,7 +1,7 @@
 import json
-import os
 from pathlib import Path
 
+from src.utils.config_paths import opencode_config_path
 from src.utils.load_config import load_config
 
 PROVIDER_ID = "ai-rotation-key"
@@ -10,7 +10,7 @@ OPENCODE_SCHEMA = "https://opencode.ai/config.json"
 
 def export_provider():
     config = load_config()
-    opencode_path = Path(os.environ["HOME"]) / ".config" / "opencode" / "config.json"
+    opencode_path = opencode_config_path()
     existia = opencode_path.exists()
     atual = _ler_existente(opencode_path)
     providers = atual.setdefault("provider", {})

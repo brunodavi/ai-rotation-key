@@ -10,3 +10,7 @@ def config_dir() -> Path:
 
 def config_path() -> Path:
     return config_dir() / "config.json"
+
+
+def opencode_config_path() -> Path:
+    return Path(os.environ["HOME"]) / ".config" / "opencode" / "config.json"

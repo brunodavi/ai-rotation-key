@@ -1,5 +1,6 @@
 import contextlib
 import io
+import os
 import pathlib
 import unittest
 from unittest import mock
@@ -74,6 +75,17 @@ class CliRoutingTests(unittest.TestCase):
         sentinela = object()
         with mock.patch("src.commands.init.init_config", return_value=sentinela):
             self.assertIs(main(["init"]), sentinela)
+
+    def test_edit_flag_opencode_abre_config_do_opencode(self):
+        with mock.patch("src.commands.edit.edit_config", return_value=None) as handler:
+            main(["edit", "--opencode"])
+        esperado = pathlib.Path(os.environ["HOME"]) / ".config" / "opencode" / "config.json"
+        handler.assert_called_once_with(esperado)
+
+    def test_edit_sem_flag_abre_o_config_do_projeto(self):
+        with mock.patch("src.commands.edit.edit_config", return_value=None) as handler:
+            main(["edit"])
+        handler.assert_called_once_with()
 
     def test_comando_invalido_sai_com_codigo_2(self):
         with self.assertRaises(SystemExit) as ctx:
