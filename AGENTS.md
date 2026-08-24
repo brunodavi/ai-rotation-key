@@ -12,7 +12,7 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
   - Única exceção: setuptools como build-backend do empacotamento (nativo do Python)
 - Empacotamento: pyproject.toml com `[project.scripts]`; o CLI vira comando `ai-rotation-key` (atalho: `airkey`) após `pip install -e .`
 - Python alvo: 3.14.6 (versão instalada neste Termux)
-- CLI: `init` (cria config.json de exemplo), `edit` (abre o config), `start` (sobe servidor), `export` (registra o provider no opencode)
+- CLI: `init` (cria config.json de exemplo), `edit` (abre o config), `start` (sobe servidor), `export` (registra o provider no opencode), `sync-models [provider]` (adiciona faltantes de /models ao config, respeitando exclude-models; exit 1 com falha parcial)
   - Parsing com argparse
   - `edit` usa `$EDITOR` com fallback `vi` (subprocess.run)
   - `export` adiciona este servidor como provider em ~/.config/opencode/config.json: lê o JSON existente, checa se o provider já existe antes de adicionar (idempotente, não duplica), preserva os demais providers e escreve de volta com módulo json

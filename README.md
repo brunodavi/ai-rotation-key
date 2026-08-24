@@ -36,6 +36,10 @@ ai-rotation-key start
 
 # Registra este servidor como provider no ~/.config/opencode/config.json (idempotente, não duplica)
 ai-rotation-key export
+
+# Busca /models de cada provider e adiciona os faltantes ao config
+airkey sync-models          # todos os providers
+airkey sync-models gemini   # apenas um
 ```
 
 ### Config
@@ -48,6 +52,7 @@ ai-rotation-key export
   "providers": {
     "gemini": {
       "api-keys": ["sk-exemplo-1", "sk-exemplo-2"],
+      "exclude-models": ["*tts*", "*image*", "*embedding*", "veo-*"],
       "models": ["gemini-3.5-flash", "gemini-3.1-flash-lite"]
     },
     "openai": {
@@ -58,6 +63,8 @@ ai-rotation-key export
   }
 }
 ```
+
+`sync-models` lista os modelos de cada provider via `GET {base-url}/models` e adiciona só os faltantes — **nunca testa os modelos** (cota intacta) e nunca remove o que você já tinha. Padrões glob em `exclude-models` filtram candidatos indesejados (TTS, imagem, embeddings etc.); casam com o id sem prefixo `models/`.
 
 > v0.2.0: o formato antigo com `model-keys` foi removido — recrie o config com `airkey init`.
 
