@@ -75,6 +75,13 @@ def _validar_providers(dados):
             isinstance(modelo, str) and modelo for modelo in modelos
         ):
             raise ValueError(f"'models' do provider '{nome}' deve ser lista não-vazia de strings")
+        exclude = cfg.get("exclude-models", [])
+        if not isinstance(exclude, list) or not all(
+            isinstance(p, str) and p for p in exclude
+        ):
+            raise ValueError(
+                f"'exclude-models' do provider '{nome}' deve ser lista de padrões (strings)"
+            )
         base_url = cfg.get("base-url") or DEFAULT_BASE_URLS.get(nome)
         if not base_url:
             raise ValueError(
@@ -87,5 +94,10 @@ def _validar_providers(dados):
                     f"modelo '{modelo}' declarado em dois providers ('{vistos[modelo]}' e '{nome}')"
                 )
             vistos[modelo] = nome
-        providers[nome] = {"base-url": base_url, "api-keys": api_keys, "models": modelos}
+        providers[nome] = {
+            "base-url": base_url,
+            "api-keys": api_keys,
+            "exclude-models": exclude,
+            "models": modelos,
+        }
     return providers
