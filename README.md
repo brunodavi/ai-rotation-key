@@ -26,21 +26,23 @@ pip install -e .
 
 ```sh
 # Cria config de exemplo em ~/.config/ai-rotation-key/config.json
-ai-rotation-key init   # ou use o atalho: airkey init
+airkey init
 
 # Abre o config no $EDITOR (fallback: vi)
-ai-rotation-key edit
+airkey edit
 
 # Sobe o servidor local (escuta apenas em 127.0.0.1)
-ai-rotation-key start
+airkey start
 
 # Registra este servidor como provider no ~/.config/opencode/config.json (idempotente, não duplica)
-ai-rotation-key export
+airkey export
 
 # Busca /models de cada provider e adiciona os faltantes ao config
 airkey sync-models          # todos os providers
 airkey sync-models gemini   # apenas um
 ```
+
+O comando canônico é `ai-rotation-key`; `airkey` é o atalho — use o que preferir, ambos fazem o mesmo.
 
 ### Config
 
