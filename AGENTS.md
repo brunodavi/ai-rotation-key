@@ -22,6 +22,8 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
   - Chave por nome de modelo — formato escolhido para integração com o opencode
 - HTTP 100% stdlib: servidor com http.server.ThreadingHTTPServer, chamadas upstream com urllib.request
 - Rotação: round-robin simples por modelo — cada request usa a próxima chave da lista do modelo pedido, ciclicamente
+- Rotação NUNCA acontece em 400/404 (chave válida/request ruim/modelo morto) — só em 429 e erro de conexão
+- thought_signature de tool calls (Gemini 3.x): cache `id → assinatura` e reinjeção no histórico do turno seguinte (`src/utils/signature_cache.py`) — a API exige o round-trip e o cliente não deve ver extra_content
 - Testes: unittest stdlib, unitários + integração
 
 # Estrutura
@@ -52,7 +54,7 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
 - Projeto também usado como harness para validar comportamento do opencode
 
 # Modelos/Gateways
-- [ ] Gemini
+- [x] Gemini
 - [ ] OpenRouter
 - [ ] OpenCode Zen
 - [ ] OpenCode Go
