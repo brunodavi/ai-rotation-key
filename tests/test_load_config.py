@@ -155,7 +155,7 @@ class LoadConfigTests(unittest.TestCase):
             load_config()
         self.assertIn("base-url", str(ctx.exception))
 
-    def test_modelo_duplicado_entre_providers_levanta_value_error(self):
+    def test_modelo_duplicado_entre_providers_e_permitido_namespaces_unicos(self):
         self._escrever({
             "providers": {
                 "gemini": {"api-keys": ["sk-a"], "models": ["comum", "só-gemini"]},
@@ -166,9 +166,9 @@ class LoadConfigTests(unittest.TestCase):
                 },
             }
         })
-        with self.assertRaises(ValueError) as ctx:
-            load_config()
-        self.assertIn("comum", str(ctx.exception))
+        dados = load_config()
+        self.assertEqual(dados["providers"]["gemini"]["models"], ["comum", "só-gemini"])
+        self.assertEqual(dados["providers"]["openai"]["models"], ["comum"])
 
     def test_formato_antigo_model_keys_rejeitado_com_orientacao(self):
         self._escrever({"model-keys": {"gemini-3.5-flash": ["sk-velha"]}})

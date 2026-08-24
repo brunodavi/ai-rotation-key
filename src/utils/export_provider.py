@@ -47,8 +47,8 @@ def _ler_existente(path):
 
 def _bloco(config):
     modelos = [
-        modelo
-        for provider in config["providers"].values()
+        f"{nome}/{modelo}"
+        for nome, provider in config["providers"].items()
         for modelo in provider["models"]
     ]
     return {

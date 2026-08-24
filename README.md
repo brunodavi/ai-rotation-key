@@ -70,6 +70,8 @@ O comando canônico é `ai-rotation-key`; `airkey` é o atalho — use o que pre
 
 `sync-models` lista os modelos de cada provider via `GET {base-url}/models` e adiciona só os faltantes — **nunca testa os modelos** (cota intacta) e nunca remove o que você já tinha. Padrões glob em `filter-models` filtram candidatos: positivos são allowlist, `!padrão` remove; sem positivos, tudo menos os negativos (TTS, imagem, embeddings etc.); casam com o id sem prefixo `models/`.
 
+Os modelos são expostos com namespace `<provider>/<modelo>` (ex.: `openrouter/gpt-4`, `opencode-zen/big-pickle`) para evitar confusão entre gateways; requests aceitam também o nome pelado quando ele só existe em um provider. O mesmo modelo em providers distintos é permitido — qualifique quando ambos atenderem.
+
 > `exclude-models` (formato antigo) não é mais aceito no config — migre os padrões para `filter-models` prefixando cada um com `!`.
 
 > v0.2.0: o formato antigo com `model-keys` foi removido — recrie o config com `airkey init`.

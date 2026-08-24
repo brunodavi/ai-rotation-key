@@ -19,7 +19,8 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
     - Validado ao vivo (tmp/spikes/opencode-custom-provider.md): config.json É carregado pelo opencode; usar id próprio + npm "@ai-sdk/openai-compatible" + baseURL http://127.0.0.1:<porta>/v1; NUNCA sobrescrever providers embutidos (openai usa /v1/responses e hijacka o small_model interno); models saem das chaves do model-keys
 - Config: ~/.config/ai-rotation-key/config.json (ler/escrever com módulo json)
   - Formato v0.2.0: {"port": 8792, "providers": {"<nome>": {"base-url": "...", "api-keys": [...], "models": [...]}}}
-  - base-url opcional para providers com default no registro (gemini, openrouter, opencode-zen — ver src/providers/); modelo duplicado entre providers = erro de carga
+  - base-url opcional para providers com default no registro (gemini, openrouter, opencode-zen — ver src/providers/)
+  - Namespacing: /v1/models e export expõem `<provider>/<modelo>`; request aceita prefixado ou pelado (pelado ambíguo entre providers → 400 com opções); prefixo removido antes do upstream; config continua com nomes pelados; mesmo modelo em providers distintos é permitido
   - Rotação por provider (modelos do mesmo provider dividem o ciclo); formato antigo model-keys rejeitado
 - HTTP 100% stdlib: servidor com http.server.ThreadingHTTPServer, chamadas upstream com urllib.request
 - Rotação: round-robin simples por modelo — cada request usa a próxima chave da lista do modelo pedido, ciclicamente
@@ -81,7 +82,7 @@ Decisões do dono do projeto registradas como subtarefas; cada item = uma branch
       padrão positivo = allowlist; prefixo `!` = remove do resultado; sem positivos = tudo menos
       os negativos (ex.: ["*free*", "!*vision*"]). Aplica no sync-models e na validação da carga;
       config com exclude-models é rejeitado com orientação de migração (mesmo tratamento do model-keys).
-- [ ] `feat/namespacing` — modelos expostos como `<provider>/<modelo>` em /v1/models e no roteamento;
+- [x] `feat/namespacing` — modelos expostos como `<provider>/<modelo>` em /v1/models e no roteamento;
       request aceita também nome pelado quando não-ambíguo (ambíguo → 400 pedindo qualificação);
       o prefixo próprio é removido antes de ir ao upstream; sync-models continua gravando pelado no
       config; mesmo modelo em providers distintos passa a ser PERMITIDO (namespaces únicos por
