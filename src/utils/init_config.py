@@ -1,2 +1,2 @@
-def init_config():
-    raise NotImplementedError("init: criar ~/.config/ai-rotation-key/config.json de exemplo")
+def init_config(path=None):
+    raise NotImplementedError("init: criar config de exemplo")
