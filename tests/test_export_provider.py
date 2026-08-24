@@ -63,6 +63,23 @@ class ExportProviderTests(unittest.TestCase):
             },
         )
 
+    def test_name_do_modelo_com_slash_colapsa_para_dois_niveis(self):
+        self._nosso_config(
+            {
+                "openrouter": {
+                    "api-keys": ["sk-1"],
+                    "models": ["poolside/laguna-s-2.1:free"],
+                },
+            },
+            port=9000,
+        )
+        export_provider()
+        bloco = json.loads(self._opencode_path.read_text(encoding="utf-8"))["provider"][PROVIDER_ID]
+        self.assertEqual(
+            bloco["models"],
+            {"openrouter/poolside/laguna-s-2.1:free": {"name": "openrouter/laguna-s-2.1:free"}},
+        )
+
     def test_adiciona_quando_config_existe_sem_nosso_provider(self):
         self._nosso_config({"gemini": {"api-keys": ["sk-a"], "models": ["m"]}})
         self._opencode_path.parent.mkdir(parents=True, exist_ok=True)
