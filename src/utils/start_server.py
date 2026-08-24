@@ -4,7 +4,7 @@ from urllib import error, request
 
 from src.utils.config_paths import DEFAULT_PORT
 from src.utils.find_free_port import find_free_port
-from src.utils.forward_request import DEFAULT_UPSTREAM, forward_request
+from src.utils.forward_request import forward_request
 from src.utils.load_config import load_config
 from src.utils.round_robin import RoundRobin
 from src.utils.sanitize_request import sanitize_request
@@ -13,6 +13,7 @@ from src.utils.signature_cache import SignatureCache
 
 _CHAT_ROTAS = ("/chat/completions", "/v1/chat/completions")
 _HEADERS_HOP_BY_HOP = ("content-length", "transfer-encoding", "content-encoding")
+_SUFIXO_CHAT = "/chat/completions"
 
 
 class ProxyHandler(BaseHTTPRequestHandler):
@@ -56,18 +57,18 @@ class ProxyHandler(BaseHTTPRequestHandler):
 
         dados = sanitize_request(dados if isinstance(dados, dict) else {})
         modelo = dados.get("model") or self.server.model_ids[0]
-        self.server.signature_cache.inject(dados.get("messages") or [])
-        if modelo not in self.server.model_ids:
+        provider = self.server.model_to_provider.get(modelo)
+        if provider is None:
             self._enviar_json(400, {"error": {"message": f"modelo não configurado: '{modelo}'"}})
             return
+        self.server.signature_cache.inject(dados.get("messages") or [])
         payload = json.dumps(dados).encode("utf-8")
+        url = self.server.providers[provider]["base-url"].rstrip("/") + _SUFIXO_CHAT
 
         if dados.get("stream"):
-            self._repassar_stream(modelo, payload)
+            self._repassar_stream(provider, payload, url)
             return
-        status, corpo, _ = forward_request(
-            self.server.round_robin, modelo, payload, url=self.server.upstream
-        )
+        status, corpo, _ = forward_request(self.server.round_robin, provider, payload, url=url)
         try:
             resposta = json.loads(corpo)
             self.server.signature_cache.collect(resposta)
@@ -76,13 +77,13 @@ class ProxyHandler(BaseHTTPRequestHandler):
             pass
         self._enviar_json(status, None, raw=corpo)
 
-    def _repassar_stream(self, modelo, payload):
+    def _repassar_stream(self, provider, payload, url):
         rr = self.server.round_robin
         res = None
-        for tentativa in range(rr.count(modelo)):
-            chave = rr.next(modelo)
+        for tentativa in range(rr.count(provider)):
+            chave = rr.next(provider)
             req = request.Request(
-                self.server.upstream,
+                url,
                 data=payload,
                 headers={
                     "Content-Type": "application/json",
@@ -95,12 +96,12 @@ class ProxyHandler(BaseHTTPRequestHandler):
                 break
             except error.HTTPError as exc:
                 corpo_erro = exc.read()
-                if exc.code == 429 and tentativa < rr.count(modelo) - 1:
+                if exc.code == 429 and tentativa < rr.count(provider) - 1:
                     continue
                 self._enviar_json(exc.code, None, raw=corpo_erro)
                 return
             except (error.URLError, OSError, __import__("http").client.HTTPException) as exc:
-                if tentativa >= rr.count(modelo) - 1:
+                if tentativa >= rr.count(provider) - 1:
                     self._enviar_json(502, {"error": {"message": f"conexão falhou: {exc}"}})
                     return
                 continue
@@ -128,11 +129,27 @@ class ProxyHandler(BaseHTTPRequestHandler):
         self.wfile.write(corpo)
 
 
-def build_server(model_keys, port=0, upstream=None, host="127.0.0.1"):
+def build_server(providers, port=0, host="127.0.0.1"):
+    model_to_provider = {}
+    for nome, cfg in providers.items():
+        for modelo in cfg["models"]:
+            if modelo in model_to_provider and model_to_provider[modelo] != nome:
+                raise ValueError(
+                    f"modelo '{modelo}' declarado em dois providers "
+                    f"('{model_to_provider[modelo]}' e '{nome}')"
+                )
+            model_to_provider[modelo] = nome
     server = ThreadingHTTPServer((host, port), ProxyHandler)
-    server.round_robin = RoundRobin(model_keys)
-    server.model_ids = list(model_keys)
-    server.upstream = upstream or DEFAULT_UPSTREAM
+    server.providers = providers
+    server.round_robin = RoundRobin(
+        {nome: cfg["api-keys"] for nome, cfg in providers.items()}
+    )
+    server.model_to_provider = model_to_provider
+    server.model_ids = [
+        modelo
+        for nome in providers
+        for modelo in providers[nome]["models"]
+    ]
     server.signature_cache = SignatureCache()
     return server
 
@@ -141,13 +158,14 @@ def start_server():
     config = load_config()
     porta_config = config.get("port", DEFAULT_PORT)
     porta = find_free_port(porta_config) if porta_config != 0 else 0
-    server = build_server(model_keys=config["model-keys"], port=porta)
+    server = build_server(providers=config["providers"], port=porta)
     if porta != porta_config:
         print(f"[aviso] porta {porta_config} ocupada; usando {porta}", flush=True)
     print(
         f"ai-rotation-key em http://127.0.0.1:{server.server_address[1]}/v1 (apenas localhost)",
         flush=True,
     )
+    print(f"providers: {', '.join(server.providers)}", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
