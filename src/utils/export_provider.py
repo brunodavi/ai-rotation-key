@@ -28,7 +28,20 @@ def export_provider():
     atual.setdefault("$schema", OPENCODE_SCHEMA)
     opencode_path.parent.mkdir(parents=True, exist_ok=True)
     opencode_path.write_text(json.dumps(atual, indent=2) + "\n", encoding="utf-8")
+    _avisar_nomes_duplicados(bloco)
     return opencode_path, acao
+
+
+def _avisar_nomes_duplicados(bloco):
+    por_nome = {}
+    for key, info in bloco["models"].items():
+        por_nome.setdefault(info["name"], []).append(key)
+    for nome, keys in por_nome.items():
+        if len(keys) > 1:
+            print(
+                f"[aviso] nome de exibição '{nome}' se repete em {len(keys)} modelos: "
+                f"{', '.join(sorted(keys))} — use o id completo na hora de escolher"
+            )
 
 
 def _ler_existente(path):
