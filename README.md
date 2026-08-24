@@ -50,6 +50,16 @@ ai-rotation-key export
 }
 ```
 
+## Como funciona
+
+O proxy recebe chamadas OpenAI-compatíveis, escolhe a próxima chave do modelo pedido (round-robin) e repassa ao upstream. Em 429 ou erro de conexão ele tenta automaticamente a próxima chave; em 400/404 repassa direto sem gastar o pool. Assinaturas `thought_signature` de tool calls (exigidas pelo Gemini 3.x no turno seguinte) são guardadas e reinjetadas automaticamente — o cliente nunca vê campos extras.
+
+Detalhes, políticas e limitações: [`docs/arquitetura.md`](docs/arquitetura.md).
+
+## Inspiração
+
+Inspirado (e creditado) em [LiteLLM](https://github.com/BerriAI/litellm), [Hydra-gemini](https://github.com/LikithMeruvu/Hydra-gemini) e [Vercel AI SDK](https://sdk.vercel.ai/) — ver seção de créditos na documentação de arquitetura.
+
 ## Desenvolvimento
 
 Testes (unittest stdlib):
