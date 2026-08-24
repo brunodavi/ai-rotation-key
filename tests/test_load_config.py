@@ -55,6 +55,21 @@ class LoadConfigTests(unittest.TestCase):
             "https://generativelanguage.googleapis.com/v1beta/openai",
         )
 
+    def test_base_url_default_do_openrouter_e_resolvida_na_carga(self):
+        self._escrever({
+            "providers": {
+                "openrouter": {
+                    "api-keys": ["sk-or-a"],
+                    "models": ["poolside/laguna-s-2.1:free"],
+                }
+            }
+        })
+        dados = load_config()
+        self.assertEqual(
+            dados["providers"]["openrouter"]["base-url"],
+            "https://openrouter.ai/api/v1",
+        )
+
     def test_base_url_customizada_preservada(self):
         self._escrever({
             "providers": {
@@ -179,6 +194,9 @@ class LoadConfigTests(unittest.TestCase):
             "https://generativelanguage.googleapis.com/v1beta/openai",
             DEFAULT_BASE_URLS.values(),
         )
+
+    def test_defaults_conhecem_openrouter(self):
+        self.assertIn("https://openrouter.ai/api/v1", DEFAULT_BASE_URLS.values())
 
     def test_path_explicito_sobrepoe_default(self):
         alvo = self.scratch / "outro.json"
