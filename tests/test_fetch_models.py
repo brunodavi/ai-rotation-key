@@ -73,7 +73,7 @@ class FetchModelsTests(unittest.TestCase):
             fetch_models(self.upstream.url("/v1"), "sk")
 
     def test_payload_malformado_levanta_erro_claro(self):
-        self._registrar(status=200, body={"inesperado": True})
+        self._registrar(status=200, payload={"inesperado": True})
         with self.assertRaises(FetchModelsError):
             fetch_models(self.upstream.url("/v1"), "sk")
 
