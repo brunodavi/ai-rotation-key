@@ -58,9 +58,39 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
 - [x] Gemini
 - [x] OpenRouter
 - [x] OpenCode Zen
-- [ ] OpenCode Go
+- [ ] OpenCode Go (pausado: exige assinatura/cartão)
 - [ ] OpenAi
 - [ ] Qwen
+
+# Roadmap UX/DX (decisões fechadas — implementar nesta ordem)
+Decisões do dono do projeto registradas como subtarefas; cada item = uma branch própria
+(`refactor/<nome>` / `feat/<nome>`), TDD à risca, merge só após validação manual.
+
+## DX (fundação primeiro)
+- [ ] `refactor/commands` — mover a lógica de cada comando do CLI para `src/commands/<nome>.py`
+      (init, edit, start, export, sync-models); `src/cli.py` fica só com argparse/wiring.
+      ZERO mudança de comportamento; testes existentes continuam passando sem edição de asserções.
+- [ ] `refactor/providers` — centralizar o contrato real por provider em um registro único
+      (módulo por provider embutido: base-url default, auth, quirks como UA); um humano adiciona
+      provider novo criando UM arquivo. `DEFAULT_BASE_URLS` migra pra cá (load_config passa a consultar).
+
+## UX (em cima da fundação)
+- [ ] `feat/edit-opencode` — flag `--opencode` no comando `edit`: abre o config do opencode
+      (~/.config/opencode/config.json) no $EDITOR com o mesmo fluxo atual ($EDITOR, fallback vi).
+- [ ] `feat/filter-models` — SUBSTITUI exclude-models por filter-models (lista de globs):
+      padrão positivo = allowlist; prefixo `!` = remove do resultado; sem positivos = tudo menos
+      os negativos (ex.: ["*free*", "!*vision*"]). Aplica no sync-models e na validação da carga;
+      config com exclude-models é rejeitado com orientação de migração (mesmo tratamento do model-keys).
+- [ ] `feat/namespacing` — modelos expostos como `<provider>/<modelo>` em /v1/models e no roteamento;
+      request aceita também nome pelado quando não-ambíguo (ambíguo → 400 pedindo qualificação);
+      o prefixo próprio é removido antes de ir ao upstream; sync-models continua gravando pelado no
+      config; mesmo modelo em providers distintos passa a ser PERMITIDO (namespaces únicos por
+      construção — hoje conflito = ValueError na carga).
+- [ ] `feat/custom-provider-descoberta` — provider customizado no config com mapeamento declarativo
+      nativo null-safe por dot-path (ex.: "data[].id"): caminho dos ids no /models, sufixo do endpoint
+      de chat, formato do header de auth. Sem dependências (dot-path próprio, não JSONPath lib).
+- [ ] `feat/custom-provider-traducao` — tradução completa de corpo request/response do custom provider
+      via dot-path null-safe (extrair/renomear campos entre formatos não-OpenAI e o contrato do proxy).
 
 # Repositórios de Referência
 - HydraGemini
