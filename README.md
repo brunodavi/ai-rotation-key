@@ -46,7 +46,7 @@ O comando canônico é `ai-rotation-key`; `airkey` é o atalho — use o que pre
 
 ### Config
 
-`~/.config/ai-rotation-key/config.json` — providers com suas chaves e modelos. Round-robin **por provider**: os modelos de um provider dividem o ciclo das chaves dele. `base-url` é opcional para `gemini` (default embutido) e obrigatório para outros providers.
+`~/.config/ai-rotation-key/config.json` — providers com suas chaves e modelos. Round-robin **por provider**: os modelos de um provider dividem o ciclo das chaves dele. `base-url` é opcional para `gemini` e `openrouter` (defaults embutidos) e obrigatório para outros providers.
 
 ```json
 {
