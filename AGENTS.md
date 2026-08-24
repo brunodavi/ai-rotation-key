@@ -63,16 +63,18 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
 - [ ] Qwen
 
 # Planejamento & Tarefas
-- Tarefas vivem em `tmp/todo-list/fila/` (gitignored, local ao dono) — NÃO há TODO_LIST.md versionado
-  e NÃO existe registro de concluídas: o histórico mora no git (commits + tags); tarefa pronta = arquivo apagado
+- Tarefas vivem em `tmp/todo-list/` (gitignored, local ao dono) — flat, SEM subpastas de status:
+  todo `.md` ali é pendente; o que está em andamento é o arquivo que a sessão corrente implementa
+  (código não-committado na master registra o resto); tarefa pronta = arquivo apagado — NÃO há
+  TODO_LIST.md versionado e NÃO existe registro de concluídas: histórico mora no git (commits + tags)
   - Ordem = prioridade via prefixo numérico (`<n>-<tipo>-<nome>.md`); ideia nova entra SEMPRE no fim;
     reordenar = renomear prefixos
   - Tarefas com `> ⚠️ NÃO INICIAR sem ok explícito do dono` no topo exigem aprovação antes de começar
 - Agente `planner` (`.opencode/agent/planner.md`): investiga projeto + web + spikes e escreve as
   tarefas SEMPRE fechando escopo com perguntas ao dono. Permissões: leitura de tudo, escrita SÓ em
-  `tmp/todo-list/fila/`, bash só para `mv` dentro da pasta, sem subagentes, nunca executa.
+  `tmp/todo-list/`, bash só para `mv` dentro da pasta, sem subagentes, nunca executa.
 - Cada arquivo de tarefa nasce inteiro num único write — nunca editar parcialmente; mudar = reescrever
-- Fluxo: ideia vaga → sessão com `planner` (primário ou @planner) → arquivo no fim da fila →
+- Fluxo: ideia vaga → sessão com `planner` (primário ou @planner) → arquivo no fim da lista →
   implementação direto na master conforme Workflow TDD & Git → validação do dono → tag do ciclo →
   arquivo da tarefa apagado
 
