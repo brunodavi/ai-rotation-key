@@ -128,8 +128,8 @@ class ProxyHandler(BaseHTTPRequestHandler):
         self.wfile.write(corpo)
 
 
-def build_server(model_keys, port=0, upstream=None):
-    server = ThreadingHTTPServer(("", port), ProxyHandler)
+def build_server(model_keys, port=0, upstream=None, host="127.0.0.1"):
+    server = ThreadingHTTPServer((host, port), ProxyHandler)
     server.round_robin = RoundRobin(model_keys)
     server.model_ids = list(model_keys)
     server.upstream = upstream or DEFAULT_UPSTREAM
@@ -144,7 +144,10 @@ def start_server():
     server = build_server(model_keys=config["model-keys"], port=porta)
     if porta != porta_config:
         print(f"[aviso] porta {porta_config} ocupada; usando {porta}", flush=True)
-    print(f"ai-rotation-key em http://127.0.0.1:{server.server_address[1]}/v1", flush=True)
+    print(
+        f"ai-rotation-key em http://127.0.0.1:{server.server_address[1]}/v1 (apenas localhost)",
+        flush=True,
+    )
     try:
         server.serve_forever()
     except KeyboardInterrupt:

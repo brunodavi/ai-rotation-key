@@ -143,6 +143,9 @@ class HttpServerTests(unittest.TestCase):
         status, body = self._post("/outra/coisa", {"qualquer": 1})
         self.assertEqual(status, 404)
 
+    def test_servidor_binda_apenas_em_localhost_por_padrao(self):
+        self.assertEqual(self.server.server_address[0], "127.0.0.1")
+
     def test_assinatura_de_tool_call_e_reinjetada_no_proximo_request(self):
         resposta = {
             "choices": [{
