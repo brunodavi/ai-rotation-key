@@ -1,2 +1,5 @@
+PROVIDER_ID = "ai-rotation-key"
+
+
 def export_provider():
-    raise NotImplementedError("export: registrar provider em ~/.config/opencode/config.json de forma idempotente")
+    raise NotImplementedError("registrar provider no config do opencode")
