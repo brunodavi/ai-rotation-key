@@ -14,7 +14,7 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
 - Python alvo: 3.14.6 (versão instalada neste Termux)
 - CLI: `init` (cria config.json de exemplo), `edit` (abre o config), `start` (sobe servidor), `export` (registra o provider no opencode), `sync-models [provider]` (adiciona faltantes de /models ao config, respeitando exclude-models; exit 1 com falha parcial)
   - Parsing com argparse
-  - `edit` usa `$EDITOR` com fallback `vi` (subprocess.run)
+  - `edit` usa `$EDITOR` com fallback `vi` (subprocess.run); flag `--opencode` abre o config do opencode
   - `export` adiciona este servidor como provider em ~/.config/opencode/config.json: lê o JSON existente, checa se o provider já existe antes de adicionar (idempotente, não duplica), preserva os demais providers e escreve de volta com módulo json
     - Validado ao vivo (tmp/spikes/opencode-custom-provider.md): config.json É carregado pelo opencode; usar id próprio + npm "@ai-sdk/openai-compatible" + baseURL http://127.0.0.1:<porta>/v1; NUNCA sobrescrever providers embutidos (openai usa /v1/responses e hijacka o small_model interno); models saem das chaves do model-keys
 - Config: ~/.config/ai-rotation-key/config.json (ler/escrever com módulo json)
@@ -75,7 +75,7 @@ Decisões do dono do projeto registradas como subtarefas; cada item = uma branch
       provider novo criando UM arquivo. `DEFAULT_BASE_URLS` migra pra cá (load_config passa a consultar).
 
 ## UX (em cima da fundação)
-- [ ] `feat/edit-opencode` — flag `--opencode` no comando `edit`: abre o config do opencode
+- [x] `feat/edit-opencode` — flag `--opencode` no comando `edit`: abre o config do opencode
       (~/.config/opencode/config.json) no $EDITOR com o mesmo fluxo atual ($EDITOR, fallback vi).
 - [ ] `feat/filter-models` — SUBSTITUI exclude-models por filter-models (lista de globs):
       padrão positivo = allowlist; prefixo `!` = remove do resultado; sem positivos = tudo menos
