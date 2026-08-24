@@ -41,7 +41,9 @@ def main():
         return 1
     escrever("pre-commit", "pre-commit")
     escrever("commit-msg", 'commit-msg "$@"')
-    print("hooks ativos: suíte+segredos no pre-commit, formato no commit-msg")
+    escrever("pre-push", "pre-push")
+    print("hooks ativos: suíte+segredos no pre-commit, formato no commit-msg, "
+          "tags=prod no pre-push")
     return 0
 
 

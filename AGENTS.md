@@ -39,15 +39,17 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
 
 # Workflow TDD & Git
 - TDD à risca: validação do comportamento real → RED (erro na asserção, stub mínimo necessário) → GREEN → REFACTOR
-- Commits direto na MASTER, formato obrigatório: `<tipo>(<escopo-opcional>): <FASE> - <mensagem>`
-  - Fase por tipo: test→RED · feat→GREEN · refactor→REFACTOR · fix→RED|GREEN · docs/chore SEM fase
-  - Merge/Revert imunes; hooks bloqueiam mensagem fora do padrão
-  - REFACTOR é opcional no ciclo (nem todo GREEN precisa)
+- Branch de trabalho é a `dev` (antes `master`): commits diretos e push em QUALQUER estado — inclusive RED; dev é ambiente de desenvolvimento
+  - Formato: `<tipo>(<escopo-opcional>): <FASE> - <mensagem>` · Fase por tipo: test→RED ·
+    feat→GREEN · refactor→REFACTOR · fix→RED|GREEN · docs/chore SEM fase · Merge/Revert imunes ·
+    REFACTOR é opcional no ciclo
+- TAGS são PROD (pre-push valida): só sobem com versão semver MAIOR que a última existente, batendo com `pyproject.toml`, suíte verde e árvore limpa
+- A cada ciclo comprovado — suíte verde + validação manual do dono — subir a versão no pyproject e criar a tag do estado estável
 - Hooks automáticos (`scripts/install-git-hooks.py`, uma vez por clone):
   - pre-commit: roda a suíte COMPLETA (commit não passa vermelho) + escaneia staged por
-    segredos (sk-/AIza…) e arquivo espúrio sem extensão
+    segredos (sk-/AIza…), arquivo espúrio sem extensão e qualquer caminho em tmp/
   - commit-msg: valida o formato acima
-- A cada ciclo comprovado — suíte verde + validação manual do dono — criar TAG marcando o estado estável
+  - pre-push: gate de PROD para tags (versão/semver/suíte/árvore)
 - Testes de integração SEMPRE via `tests/mock_server.py`: rotas as-is com respostas registráveis, `reset()` por teste, sequenciais (1 worker, sem paralelismo)
 - Porta em teste: efêmera por padrão; se fixada via `AI_ROTATION_MOCK_PORT`, anti-colisão +1 (`find_free_port`)
 - NADA fora do projeto (Termux não tem /tmp): fixtures de HOME em `tmp/.scratch/`, nunca tempfile do sistema; servidor real deriva porta com +1 e loga a efetiva
@@ -73,7 +75,7 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
 # Planejamento & Tarefas
 - Tarefas vivem em `tmp/todo-list/` (gitignored, local ao dono) — flat, SEM subpastas de status:
   todo `.md` ali é pendente; o que está em andamento é o arquivo que a sessão corrente implementa
-  (código não-committado na master registra o resto); tarefa pronta = arquivo apagado — NÃO há
+  (código não-committado na dev registra o resto); tarefa pronta = arquivo apagado — NÃO há
   TODO_LIST.md versionado e NÃO existe registro de concluídas: histórico mora no git (commits + tags)
   - Ordem = prioridade via prefixo numérico (`<n>-<tipo>-<nome>.md`); ideia nova entra SEMPRE no fim;
     reordenar = renomear prefixos
@@ -83,7 +85,7 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
   `tmp/todo-list/`, bash só para `mv` dentro da pasta, sem subagentes, nunca executa.
 - Cada arquivo de tarefa nasce inteiro num único write — nunca editar parcialmente; mudar = reescrever
 - Fluxo: ideia vaga → sessão com `planner` (primário ou @planner) → arquivo no fim da lista →
-  implementação direto na master conforme Workflow TDD & Git → validação do dono → tag do ciclo →
+  implementação direto na dev conforme Workflow TDD & Git → validação do dono → tag do ciclo →
   arquivo da tarefa apagado
 
 # Repositórios de Referência
