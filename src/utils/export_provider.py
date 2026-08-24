@@ -46,6 +46,11 @@ def _ler_existente(path):
 
 
 def _bloco(config):
+    modelos = [
+        modelo
+        for provider in config["providers"].values()
+        for modelo in provider["models"]
+    ]
     return {
         "npm": "@ai-sdk/openai-compatible",
         "name": "AI Rotation Key (local)",
@@ -53,5 +58,5 @@ def _bloco(config):
             "baseURL": f"http://127.0.0.1:{config['port']}/v1",
             "apiKey": "sk-dummy",
         },
-        "models": {modelo: {"name": modelo} for modelo in config["model-keys"]},
+        "models": {modelo: {"name": modelo} for modelo in modelos},
     }
