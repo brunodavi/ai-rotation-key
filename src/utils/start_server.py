@@ -9,6 +9,7 @@ from src.utils.load_config import load_config
 from src.utils.round_robin import RoundRobin
 from src.utils.sanitize_request import sanitize_request
 from src.utils.sanitize_response import sanitize_response_payload, sanitize_sse_line
+from src.utils.signature_cache import SignatureCache
 
 _CHAT_ROTAS = ("/chat/completions", "/v1/chat/completions")
 _HEADERS_HOP_BY_HOP = ("content-length", "transfer-encoding", "content-encoding")
@@ -55,6 +56,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
 
         dados = sanitize_request(dados if isinstance(dados, dict) else {})
         modelo = dados.get("model") or self.server.model_ids[0]
+        self.server.signature_cache.inject(dados.get("messages") or [])
         if modelo not in self.server.model_ids:
             self._enviar_json(400, {"error": {"message": f"modelo não configurado: '{modelo}'"}})
             return
@@ -68,6 +70,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
         )
         try:
             resposta = json.loads(corpo)
+            self.server.signature_cache.collect(resposta)
             corpo = json.dumps(sanitize_response_payload(resposta)).encode("utf-8")
         except (json.JSONDecodeError, TypeError):
             pass
@@ -110,8 +113,9 @@ class ProxyHandler(BaseHTTPRequestHandler):
         self.send_header("Connection", "close")
         self.end_headers()
         self.close_connection = True
+        coletor = self.server.signature_cache.collect
         for linha in res:
-            self.wfile.write(sanitize_sse_line(linha))
+            self.wfile.write(sanitize_sse_line(linha, collector=coletor))
             self.wfile.flush()
         res.close()
 
@@ -129,6 +133,7 @@ def build_server(model_keys, port=0, upstream=None):
     server.round_robin = RoundRobin(model_keys)
     server.model_ids = list(model_keys)
     server.upstream = upstream or DEFAULT_UPSTREAM
+    server.signature_cache = SignatureCache()
     return server
 
 

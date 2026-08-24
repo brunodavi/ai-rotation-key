@@ -17,7 +17,7 @@ def sanitize_response_payload(resp):
     return resp
 
 
-def sanitize_sse_line(line):
+def sanitize_sse_line(line, collector=None):
     texto = line.decode("utf-8", errors="ignore")
     if not texto.startswith("data:") or "[DONE]" in texto:
         return line
@@ -28,6 +28,8 @@ def sanitize_sse_line(line):
         chunk = json.loads(bruto)
     except json.JSONDecodeError:
         return line
+    if collector is not None:
+        collector(chunk)
     limpo = sanitize_response_payload(copy.deepcopy(chunk))
     if limpo == chunk:
         return line

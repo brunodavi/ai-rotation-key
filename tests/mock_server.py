@@ -24,14 +24,13 @@ class MockServer:
 
         def _consumir(self, method):
             length = int(self.headers.get("Content-Length", 0))
-            if length > 0:
-                self.rfile.read(length)
+            bruto = self.rfile.read(length) if length > 0 else b""
             key = (method, self.path.split("?")[0])
             self.server.requests.append({
                 "method": method,
                 "path": self.path,
                 "headers": dict(self.headers),
-                "body": b"",
+                "body": bruto,
             })
             fila = self.server.registrations.get(key)
             if not fila:
