@@ -76,6 +76,7 @@ class SyncModelsTests(unittest.TestCase):
         resultado = sync_models()
         self.assertFalse(resultado.houve_erro)
         self.assertTrue(resultado.salvo)
+        self.assertEqual(resultado.path, caminho)
         rel = resultado.relatorios["gemini"]
         self.assertEqual(rel["adicionados"], ["m-novo", "zzz-outro"])
         self.assertEqual(rel["existentes"], 1)

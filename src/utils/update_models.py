@@ -8,7 +8,7 @@ from src.utils.config_paths import config_path
 from src.utils.fetch_models import FetchModelsError, fetch_models
 from src.utils.load_config import load_config
 
-SyncResult = namedtuple("SyncResult", "relatorios salvo houve_erro")
+SyncResult = namedtuple("SyncResult", "relatorios salvo houve_erro path")
 
 
 def sync_models(path=None, apenas=None):
@@ -32,13 +32,13 @@ def sync_models(path=None, apenas=None):
         relatorios[nome] = relatorio
         if relatorio["adicionados"]:
             mudou = True
+    destino = Path(path) if path is not None else config_path()
     salvo = False
     if mudou:
-        destino = Path(path) if path is not None else config_path()
         destino.parent.mkdir(parents=True, exist_ok=True)
         destino.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
         salvo = True
-    return SyncResult(relatorios=relatorios, salvo=salvo, houve_erro=houve_erro)
+    return SyncResult(relatorios=relatorios, salvo=salvo, houve_erro=houve_erro, path=destino)
 
 
 def sync_provider(nome, cfg):
