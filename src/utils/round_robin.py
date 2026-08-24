@@ -18,3 +18,6 @@ class RoundRobin:
                 return next(self._pools[model])
             except KeyError:
                 raise KeyError(f"modelo desconhecido: '{model}'") from None
+
+    def count(self, model):
+        raise NotImplementedError("contar chaves do modelo")

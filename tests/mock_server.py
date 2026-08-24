@@ -27,6 +27,12 @@ class MockServer:
             if length > 0:
                 self.rfile.read(length)
             key = (method, self.path.split("?")[0])
+            self.server.requests.append({
+                "method": method,
+                "path": self.path,
+                "headers": dict(self.headers),
+                "body": b"",
+            })
             fila = self.server.registrations.get(key)
             if not fila:
                 self._enviar_json(500, {"error": "mock: sem resposta registrada"})
@@ -86,6 +92,7 @@ class MockServer:
         self._server = ThreadingHTTPServer(("127.0.0.1", porta), self._Handler)
         self._server.daemon_threads = True
         self._server.registrations = self._rotas
+        self._server.requests = []
         self.port = self._server.server_address[1]
         self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
         self._thread.start()
@@ -115,6 +122,8 @@ class MockServer:
 
     def reset(self):
         self._rotas.clear()
+        if self._server is not None:
+            self._server.requests.clear()
 
     def stop(self):
         if self._server is not None:
