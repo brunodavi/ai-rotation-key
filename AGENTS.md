@@ -57,10 +57,9 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
 # Modelos/Gateways
 - [x] Gemini
 - [x] OpenRouter
-- [ ] OpenCode Zen
+- [x] OpenCode Zen
 - [ ] OpenCode Go
 - [ ] OpenAi
-- [ ] Deep Seek
 - [ ] Qwen
 
 # Repositórios de Referência

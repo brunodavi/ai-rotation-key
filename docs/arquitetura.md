@@ -53,7 +53,7 @@ flowchart TD
 ## Políticas principais
 
 - **Rotação**: só em HTTP 429 e erro de conexão. 400 (chave inválida/request ruim) e 404 (modelo morto) são repassados ao cliente imediatamente — rotacionar neles só gastaria o pool à toa.
-- **Multi-provider**: cada provider tem seu próprio pool de chaves e upstream (`base-url`; gemini e openrouter têm default embutido, outros precisam declarar). O modelo recebido resolve para exatamente um provider — duplicado no config é erro de carga. Round-robin é por provider: os modelos dele dividem o mesmo ciclo.
+- **Multi-provider**: cada provider tem seu próprio pool de chaves e upstream (`base-url`; gemini, openrouter e opencode-zen têm default embutido, outros precisam declarar). O modelo recebido resolve para exatamente um provider — duplicado no config é erro de carga. Round-robin é por provider: os modelos dele dividem o mesmo ciclo. Todas as chamadas upstream enviam `User-Agent: ai-rotation-key/<versão>` (o gateway do OpenCode Zen rejeita User-Agent Python atrás do Cloudflare).
 - **thought_signature** (Gemini 3.x): a API exige que a assinatura devolvida junto ao functionCall volte no histórico do turno seguinte. O proxy remove o campo da resposta (cliente não vê `extra_content`) e o reinjeta sozinho na próxima requisição.
 - **Segurança**: escuta somente em `127.0.0.1`; chaves ficam apenas no config local.
 - **Porta**: vem do config (padrão 8792); se ocupada, deriva com +1 e avisa no log.
