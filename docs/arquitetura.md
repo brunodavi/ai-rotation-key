@@ -4,25 +4,33 @@ CLI + servidor HTTP local que intermedia chamadas OpenAI-compatíveis e distribu
 
 ## Fluxo de um request
 
-```
-opencode / cliente
-      │  POST /v1/chat/completions (ou /chat/completions)
-      ▼
-┌────────────────────────── proxy local ──────────────────────────┐
-│ 1. sanitize_request   — whitelist de campos, tools legadas →    │
-│                         formato atual, content vazio → " "       │
-│ 2. signature_cache.inject — reinjeta thought_signature no        │
-│    histórico (tool calls de turnos anteriores)                   │
-│ 3. RoundRobin.next(modelo) — próxima chave do pool do modelo     │
-│ 4. forward_request / stream — repassa ao upstream                │
-│    • 429 ou erro de conexão → tenta a próxima chave              │
-│    • 400 / 404 → repassa direto SEM queimar outras chaves        │
-│ 5. sanitize_response  — remove extra_content da saída            │
-│    signature_cache.collect — guarda assinatura por tool_call.id  │
-└──────────────────────────────────────────────────────────────────┘
-      │  resposta limpa (JSON ou SSE linha a linha com flush)
-      ▼
-opencode / cliente
+```mermaid
+flowchart TD
+    cli["opencode / cliente"]
+
+    subgraph proxy["proxy local ai-rotation-key · escuta em 127.0.0.1"]
+        sr["sanitize_request<br/>whitelist de campos ·<br/>tools legadas → formato atual"]
+        inj["signature_cache.inject<br/>thought_signature no histórico"]
+        rr["RoundRobin.next(modelo)<br/>próxima chave do pool"]
+        send["forward_request ou<br/>_repassar_stream"]
+        st{"status do<br/>upstream?"}
+        col["sanitize_response<br/>remove extra_content"]
+        sig["signature_cache.collect<br/>guarda tool_call.id → assinatura"]
+    end
+
+    up["upstream<br/>Gemini openai-compatible"]
+
+    cli -- "POST /v1/chat/completions" --> sr
+    sr --> inj
+    inj --> rr
+    rr --> send
+    send -- "Authorization: Bearer chave" --> up
+    up --> st
+    st -- "429 ou erro de conexão:<br/>tenta próxima chave" --> rr
+    st -- "400 / 404:<br/>repassa sem rotacionar" --> cli
+    st -- "sucesso" --> col
+    col --> sig
+    sig -- "JSON ou SSE linha a linha com flush" --> cli
 ```
 
 ## Componentes (`src/utils/`, um arquivo por função)
