@@ -3,6 +3,7 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
 
 # Comandos
 - Instalar (dev): `pip install -e .`
+- Instalar hooks git (uma vez por clone): `python scripts/install-git-hooks.py`
 - Todos os testes: `python -m unittest discover -s tests -v`
 - Um módulo de teste: `python -m unittest tests.test_<modulo>`
 - Sem lint (decisão: não adicionar)
@@ -29,7 +30,7 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
 - Testes: unittest stdlib, unitários + integração
 
 # Estrutura
-- main.py (entrypoint), src/cli.py (só argparse/wiring), src/commands/<comando>.py (lógica de cada comando CLI), src/utils/__init__.py (barrel) + src/utils/<cada_funcao>.py
+- main.py (entrypoint), src/cli.py (só argparse/wiring), src/commands/<comando>.py (lógica de cada comando CLI), src/utils/__init__.py (barrel) + src/utils/<cada_funcao>.py, scripts/ (hooks git: install-git-hooks.py + hooks/commit_hook.py), tmp/todo-list/ (fila de tarefas)
 - tests/, tmp/ (ignorado pelo git)
 
 # Convenções
@@ -38,7 +39,14 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
 
 # Workflow TDD & Git
 - TDD à risca: validação do comportamento real → RED (erro na asserção, stub mínimo necessário) → GREEN → REFACTOR
-- Commits direto na MASTER (conventional commits `test:`/`feat:`/`refactor:`/`docs:`/`chore:`) — sem branches por parte nem worktrees/agentes paralelos (decisão do dono em experimento)
+- Commits direto na MASTER, formato obrigatório: `<tipo>(<escopo-opcional>): <FASE> - <mensagem>`
+  - Fase por tipo: test→RED · feat→GREEN · refactor→REFACTOR · fix→RED|GREEN · docs/chore SEM fase
+  - Merge/Revert imunes; hooks bloqueiam mensagem fora do padrão
+  - REFACTOR é opcional no ciclo (nem todo GREEN precisa)
+- Hooks automáticos (`scripts/install-git-hooks.py`, uma vez por clone):
+  - pre-commit: roda a suíte COMPLETA (commit não passa vermelho) + escaneia staged por
+    segredos (sk-/AIza…) e arquivo espúrio sem extensão
+  - commit-msg: valida o formato acima
 - A cada ciclo comprovado — suíte verde + validação manual do dono — criar TAG marcando o estado estável
 - Testes de integração SEMPRE via `tests/mock_server.py`: rotas as-is com respostas registráveis, `reset()` por teste, sequenciais (1 worker, sem paralelismo)
 - Porta em teste: efêmera por padrão; se fixada via `AI_ROTATION_MOCK_PORT`, anti-colisão +1 (`find_free_port`)
