@@ -31,7 +31,7 @@ ai-rotation-key init
 # Abre o config no $EDITOR (fallback: vi)
 ai-rotation-key edit
 
-# Sobe o servidor local
+# Sobe o servidor local (escuta apenas em 127.0.0.1)
 ai-rotation-key start
 
 # Registra este servidor como provider no ~/.config/opencode/config.json (idempotente, não duplica)
@@ -57,3 +57,15 @@ Testes (unittest stdlib):
 ```sh
 python -m unittest discover -s tests -v
 ```
+
+## Segurança
+
+O servidor escuta **apenas em `127.0.0.1`** — suas chaves e requests não ficam acessíveis de outros dispositivos da rede. As chaves ficam somente no seu config local; o projeto não as envia para nenhum lugar além do upstream configurado.
+
+Gemini 3.x exige que a `thought_signature` dos tool calls volte no histórico do turno seguinte: o proxy guarda essas assinaturas em cache e reinjeta automaticamente — o cliente nunca vê campos extras.
+
+## Licença
+
+[MIT](LICENSE)
+
+> Projeto desenvolvido com assistência de IA (OpenCode).

@@ -9,7 +9,11 @@ description = "Roteador round-robin de chaves de APIs de IA, leve o bastante par
 readme = "README.md"
 requires-python = ">=3.14"
 authors = [{ name = "brunodavi" }]
+license = { text = "MIT" }
 dependencies = []
+
+[project.urls]
+Repository = "https://github.com/brunodavi/ai-rotation-key"
 
 [project.scripts]
 ai-rotation-key = "main:main"
