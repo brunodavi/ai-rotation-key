@@ -23,10 +23,10 @@ class ExportProviderTests(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.scratch, ignore_errors=True)
 
-    def _nosso_config(self, modelos, port=8792):
+    def _nosso_config(self, providers, port=8792):
         path = self.home / ".config" / "ai-rotation-key" / "config.json"
         path.write_text(
-            json.dumps({"model-keys": modelos, "port": port}), encoding="utf-8"
+            json.dumps({"providers": providers, "port": port}), encoding="utf-8"
         )
         return path
 
@@ -35,7 +35,17 @@ class ExportProviderTests(unittest.TestCase):
         return self.home / ".config" / "opencode" / "config.json"
 
     def test_cria_config_do_opencode_quando_nao_existe(self):
-        self._nosso_config({"gemini-3.5-flash": ["sk-1"], "gpt-x": ["sk-2"]}, port=9000)
+        self._nosso_config(
+            {
+                "gemini": {"api-keys": ["sk-1"], "models": ["gemini-3.5-flash"]},
+                "openai": {
+                    "base-url": "https://api.openai.com/v1",
+                    "api-keys": ["sk-2"],
+                    "models": ["gpt-4o-mini"],
+                },
+            },
+            port=9000,
+        )
         retornado, acao = export_provider()
         self.assertEqual(retornado, self._opencode_path)
         self.assertEqual(acao, "criado")
@@ -49,19 +59,19 @@ class ExportProviderTests(unittest.TestCase):
             bloco["models"],
             {
                 "gemini-3.5-flash": {"name": "gemini-3.5-flash"},
-                "gpt-x": {"name": "gpt-x"},
+                "gpt-4o-mini": {"name": "gpt-4o-mini"},
             },
         )
 
     def test_adiciona_quando_config_existe_sem_nosso_provider(self):
-        self._nosso_config({"m": ["sk-a"]})
+        self._nosso_config({"gemini": {"api-keys": ["sk-a"], "models": ["m"]}})
         self._opencode_path.parent.mkdir(parents=True, exist_ok=True)
         self._opencode_path.write_text(json.dumps({"provider": {"openai": {}}}), encoding="utf-8")
         _, acao = export_provider()
         self.assertEqual(acao, "adicionado")
 
     def test_e_idempotente_nao_duplica_provider(self):
-        self._nosso_config({"m": ["sk-a"]})
+        self._nosso_config({"gemini": {"api-keys": ["sk-a"], "models": ["m"]}})
         _, acao1 = export_provider()
         antes = json.loads(self._opencode_path.read_text(encoding="utf-8"))
         _, acao2 = export_provider()
@@ -72,7 +82,7 @@ class ExportProviderTests(unittest.TestCase):
         self.assertEqual(antes["provider"][PROVIDER_ID], depois["provider"][PROVIDER_ID])
 
     def test_preserva_outros_providers_e_chaves_top_level(self):
-        self._nosso_config({"meu-modelo": ["sk-1"]})
+        self._nosso_config({"gemini": {"api-keys": ["sk-1"], "models": ["meu-modelo"]}})
         existente = {
             "$schema": "https://opencode.ai/config.json",
             "model": "openai/gpt-x",
@@ -97,9 +107,9 @@ class ExportProviderTests(unittest.TestCase):
         self.assertIn("baseURL", nosso["options"])
 
     def test_atualiza_baseurl_e_models_se_nosso_config_mudou(self):
-        self._nosso_config({"velho": ["sk-1"]}, port=8792)
+        self._nosso_config({"gemini": {"api-keys": ["sk-1"], "models": ["velho"]}}, port=8792)
         export_provider()
-        self._nosso_config({"novo": ["sk-2"]}, port=9500)
+        self._nosso_config({"gemini": {"api-keys": ["sk-2"], "models": ["novo"]}}, port=9500)
         _, acao = export_provider()
         self.assertEqual(acao, "atualizado")
         bloco = json.loads(self._opencode_path.read_text(encoding="utf-8"))["provider"][PROVIDER_ID]
@@ -107,7 +117,7 @@ class ExportProviderTests(unittest.TestCase):
         self.assertEqual(list(bloco["models"]), ["novo"])
 
     def test_json_malformado_levanta_value_error_sem_destruir_arquivo(self):
-        self._nosso_config({"m": ["sk-1"]})
+        self._nosso_config({"gemini": {"api-keys": ["sk-1"], "models": ["m"]}})
         self._opencode_path.parent.mkdir(parents=True, exist_ok=True)
         quebrado = "{ provider: "
         self._opencode_path.write_text(quebrado, encoding="utf-8")
