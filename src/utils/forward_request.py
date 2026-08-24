@@ -2,6 +2,8 @@ import http.client
 import json
 from urllib import error, request
 
+from src.utils.user_agent import USER_AGENT
+
 DEFAULT_UPSTREAM = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
 
 _ROTACIONAVEIS = (error.URLError, OSError, http.client.HTTPException)
@@ -17,6 +19,7 @@ def forward_request(round_robin, model, payload, url=DEFAULT_UPSTREAM, timeout=1
             headers={
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {chave}",
+                "User-Agent": USER_AGENT,
             },
             method="POST",
         )
