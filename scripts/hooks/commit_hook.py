@@ -1,13 +1,16 @@
 """Hook unificado do projeto — chamado pelos shims em .git/hooks.
 
 Uso:
-    commit_hook.py pre-commit            → suíte verde + nada de segredo/lixo no staged
+    commit_hook.py pre-commit            → nada de segredo/lixo/tmp no staged
     commit_hook.py commit-msg <arquivo>  → valida `<tipo>(<escopo>): [FASE - ]mensagem`
     commit_hook.py pre-push (stdin)      → tags são PROD: semver subindo, versão do
-                                           pyproject consistente, suíte verde, árvore limpa
+                                           pyproject consistente, SUÍTE verde, árvore limpa
 
 Fases obrigatórias: test→RED · feat→GREEN · refactor→REFACTOR · fix→RED|GREEN.
 docs/chore não levam fase. Merge/Revert são imunes.
+
+A suíte NÃO roda no pre-commit de propósito: o fluxo TDD exige commitar em RED;
+a qualidade é gateada apenas na publicação de tag (prod).
 """
 
 import os
@@ -169,16 +172,6 @@ def falhas_de_staged(caminhos):
 
 def pre_commit():
     falhas = []
-
-    resultado = subprocess.run(
-        [sys.executable, "-m", "unittest", "discover", "-s", "tests"],
-        capture_output=True,
-        text=True,
-    )
-    if resultado.returncode != 0:
-        falhas.append("suíte de testes falhou:\n" + (resultado.stderr or "")[-2000:])
-    else:
-        _saida("suíte verde")
 
     staged = subprocess.run(
         ["git", "diff", "--cached", "--name-only", "-z"],
