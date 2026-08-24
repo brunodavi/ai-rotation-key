@@ -105,6 +105,11 @@ Decisões do dono do projeto registradas como subtarefas; cada item = uma branch
       cria o config só com aquele provider (placeholders de key + modelos de exemplo + filter-models
       sugeridos, vindos do registro). Se flags dinâmicas `--<nome>` não couberem bem no argparse,
       fallback pré-aprovado: `init -p/--provider <nome>`.
+      Padrão do dono: o init SEM flag usa opencode-zen com `"api-keys": ["public"]` e modelos free —
+      onboarding zero-custo; ao criar, imprimir dica com curl pronto pra testar logo após
+      `airkey start`, pedindo pro chat responder apenas "OK" (ex.:
+      curl http://127.0.0.1:<porta>/v1/chat/completions -d '{"model":
+      "opencode-zen/laguna-s-2.1-free", ...}').
 - [ ] `feat/edit-harness` — terminologia: opencode é o HARNESS, não provider. Trocar a flag
       `edit --opencode` por forma autoexplicativa: preferir `edit --harness [nome]` (default
       implícito: opencode); se não couber, `edit -H <harness>` ou similar. Atualizar help,
