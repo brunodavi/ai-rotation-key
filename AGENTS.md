@@ -32,6 +32,15 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
 - Conventional commits
 - README.md simples: instalação direta via `pip install git+https://github.com/brunodavi/ai-rotation-key.git`, comandos e motivação (erro no Termux por causa do Rust)
 
+# Workflow TDD & Git
+- Uma branch por parte (`feat/<nome>` / `fix/<nome>`); commits entre os ciclos RED → GREEN → REFACTOR dentro da branch (`test:`, `feat:`, `refactor:`)
+- Merge na master SOMENTE após validação manual do usuário e confirmação explícita
+- Partes independentes em git worktrees sob `tmp/wt/<branch>`, implementadas por agentes em paralelo
+- Barrel `src/utils/__init__.py` NÃO é editado nas branches — imports diretos do módulo; consolidação acontece pós-merge na master
+- Testes de integração SEMPRE via `tests/mock_server.py`: rotas as-is com respostas registráveis, `reset()` por teste, sequenciais (1 worker, sem paralelismo)
+- Porta em teste: efêmera por padrão; se fixada via `AI_ROTATION_MOCK_PORT`, anti-colisão +1 (`find_free_port`)
+- NADA fora do projeto (Termux não tem /tmp): fixtures de HOME em `tmp/.scratch/`, nunca tempfile do sistema; servidor real deriva porta com +1 e loga a efetiva
+
 # Agent
 - Usar ./tmp para guardar informações e validações sobre APIs/documentações e seus contratos reais
     - ./tmp/spikes: validações encontradas em .md
