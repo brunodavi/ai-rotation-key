@@ -28,7 +28,7 @@ def main(argv=None):
         "export": export_provider,
     }
     resultado = handlers[args.command]()
-    if args.command == "init":
+    if args.command == "init" and isinstance(resultado, tuple) and len(resultado) == 2:
         path, created = resultado
         if created:
             print(f"config criado em {path}")
