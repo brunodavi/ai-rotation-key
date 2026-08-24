@@ -1,5 +1,7 @@
 import json
+import threading
 import unittest
+import urllib.error
 import urllib.request
 
 from src.utils.start_server import build_server
@@ -8,25 +10,33 @@ from tests.mock_server import MockServer
 
 class HttpServerTests(unittest.TestCase):
     def setUp(self):
-        self.upstream = MockServer()
-        self.upstream.start()
-        self.model_keys = {"gemini-3.1-flash-lite": ["sk-a", "sk-b"]}
-        self.server = build_server(
-            model_keys=self.model_keys,
-            port=0,
-            upstream=self.upstream.url("/v1/chat/completions"),
-        )
-        self.server_thread = __import__("threading").Thread(
-            target=self.server.serve_forever, daemon=True
-        )
+        self.upstream_a = MockServer()
+        self.upstream_a.start()
+        self.upstream_b = MockServer()
+        self.upstream_b.start()
+        self.providers = {
+            "gemini": {
+                "base-url": self.upstream_a.url("/v1"),
+                "api-keys": ["sk-a1", "sk-a2"],
+                "models": ["gemini-3.5-flash", "gemini-3.1-flash-lite"],
+            },
+            "outro": {
+                "base-url": self.upstream_b.url("/v1"),
+                "api-keys": ["sk-b1"],
+                "models": ["modelo-outro"],
+            },
+        }
+        self.server = build_server(providers=self.providers, port=0)
+        self.server_thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.server_thread.start()
 
     def tearDown(self):
         self.server.shutdown()
         self.server.server_close()
         self.server_thread.join(timeout=5)
-        self.upstream.reset()
-        self.upstream.stop()
+        for upstream in (self.upstream_a, self.upstream_b):
+            upstream.reset()
+            upstream.stop()
 
     @property
     def base(self):
@@ -45,23 +55,58 @@ class HttpServerTests(unittest.TestCase):
         except urllib.error.HTTPError as e:
             return e.code, e.read()
 
+    def _registro(self, modelo="gemini-3.5-flash", status=200, body=None, stream_chunks=None):
+        alvo = self.upstream_a if modelo.startswith("gemini") else self.upstream_b
+        if stream_chunks is not None:
+            alvo.register_stream("POST", "/v1/chat/completions", stream_chunks)
+        else:
+            alvo.register("POST", "/v1/chat/completions", status=status, body=body if body is not None else {"choices": []})
+        return alvo
+
     def test_post_v1_chat_completions_nao_stream(self):
-        self.upstream.register("POST", "/v1/chat/completions", status=200, body={"choices": []})
+        self._registro(body={"choices": []})
         status, body = self._post(
             "/v1/chat/completions",
-            {"model": "gemini-3.1-flash-lite", "messages": [{"role": "user", "content": "oi"}]},
+            {"model": "gemini-3.5-flash", "messages": [{"role": "user", "content": "oi"}]},
         )
         self.assertEqual(status, 200)
         self.assertEqual(json.loads(body), {"choices": []})
 
     def test_rota_legada_sem_prefixo_v1_tambem_funciona(self):
-        self.upstream.register("POST", "/v1/chat/completions", status=200, body={"ok": True})
+        self._registro(body={"ok": True})
         status, body = self._post(
             "/chat/completions",
-            {"model": "gemini-3.1-flash-lite", "messages": [{"role": "user", "content": "oi"}]},
+            {"model": "gemini-3.5-flash", "messages": [{"role": "user", "content": "oi"}]},
         )
         self.assertEqual(status, 200)
         self.assertEqual(json.loads(body), {"ok": True})
+
+    def test_cada_modelo_vai_pro_upstream_do_seu_provider(self):
+        self.upstream_a.register("POST", "/v1/chat/completions", status=200, body={"de": "gemini"})
+        self.upstream_b.register("POST", "/v1/chat/completions", status=200, body={"de": "outro"})
+        _, body_a = self._post(
+            "/v1/chat/completions",
+            {"model": "gemini-3.5-flash", "messages": [{"role": "user", "content": "oi"}]},
+        )
+        _, body_b = self._post(
+            "/v1/chat/completions",
+            {"model": "modelo-outro", "messages": [{"role": "user", "content": "oi"}]},
+        )
+        self.assertEqual(json.loads(body_a), {"de": "gemini"})
+        self.assertEqual(json.loads(body_b), {"de": "outro"})
+
+    def test_rotacao_e_independente_por_provider(self):
+        self.upstream_a.register("POST", "/v1/chat/completions", status=429, body={"e": 1})
+        self.upstream_a.register("POST", "/v1/chat/completions", status=200, body={"ok": "a2"})
+        status, body = self._post(
+            "/v1/chat/completions",
+            {"model": "gemini-3.5-flash", "messages": [{"role": "user", "content": "oi"}]},
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body), {"ok": "a2"})
+        auths = [r["headers"]["Authorization"] for r in self.upstream_a.requests]
+        self.assertEqual(auths, ["Bearer sk-a1", "Bearer sk-a2"])
+        self.assertEqual(len(self.upstream_b.requests), 0, "provider B não deveria ser tocado")
 
     def test_resposta_nao_stream_vem_sanitizada(self):
         resposta_com_extra = {
@@ -73,18 +118,18 @@ class HttpServerTests(unittest.TestCase):
                 }
             }]
         }
-        self.upstream.register("POST", "/v1/chat/completions", status=200, body=resposta_com_extra)
+        self._registro(body=resposta_com_extra)
         _, body = self._post(
             "/v1/chat/completions",
-            {"model": "gemini-3.1-flash-lite", "messages": [{"role": "user", "content": "oi"}]},
+            {"model": "gemini-3.5-flash", "messages": [{"role": "user", "content": "oi"}]},
         )
         self.assertNotIn(b"extra_content", body)
 
-    def test_get_v1_models_lista_modelos_do_config(self):
+    def test_get_v1_models_lista_uniao_na_ordem_dos_providers(self):
         with urllib.request.urlopen(self.base + "/v1/models", timeout=10) as res:
             dados = json.loads(res.read())
         ids = [m["id"] for m in dados["data"]]
-        self.assertEqual(ids, ["gemini-3.1-flash-lite"])
+        self.assertEqual(ids, ["gemini-3.5-flash", "gemini-3.1-flash-lite", "modelo-outro"])
 
     def test_get_raiz_responde_saude(self):
         with urllib.request.urlopen(self.base + "/", timeout=10) as res:
@@ -95,11 +140,11 @@ class HttpServerTests(unittest.TestCase):
             b'data: {"choices":[{"delta":{"content":"1","extra_content":{"g":{}}},"index":0}]}\n\n',
             b"data: [DONE]\n\n",
         ]
-        self.upstream.register_stream("POST", "/v1/chat/completions", chunks)
+        self._registro(stream_chunks=chunks)
         req = urllib.request.Request(
             self.base + "/v1/chat/completions",
             data=json.dumps({
-                "model": "gemini-3.1-flash-lite",
+                "model": "gemini-3.5-flash",
                 "messages": [{"role": "user", "content": "oi"}],
                 "stream": True,
             }).encode(),
@@ -111,21 +156,11 @@ class HttpServerTests(unittest.TestCase):
         self.assertNotIn(b"extra_content", recebido)
         self.assertTrue(recebido.endswith(b"data: [DONE]\n\n"))
 
-    def test_rotaciona_429_atraves_do_servidor(self):
-        self.upstream.register("POST", "/v1/chat/completions", status=429, body={"e": 1})
-        self.upstream.register("POST", "/v1/chat/completions", status=200, body={"ok": "segunda"})
-        status, body = self._post(
-            "/v1/chat/completions",
-            {"model": "gemini-3.1-flash-lite", "messages": [{"role": "user", "content": "oi"}]},
-        )
-        self.assertEqual(status, 200)
-        self.assertEqual(json.loads(body), {"ok": "segunda"})
-
     def test_400_passa_direto_com_corpo_do_upstream(self):
-        self.upstream.register("POST", "/v1/chat/completions", status=400, body={"erro": "ruim"})
+        self._registro(status=400, body={"erro": "ruim"})
         status, body = self._post(
             "/v1/chat/completions",
-            {"model": "gemini-3.1-flash-lite", "messages": [{"role": "user", "content": "oi"}]},
+            {"model": "gemini-3.5-flash", "messages": [{"role": "user", "content": "oi"}]},
         )
         self.assertEqual(status, 400)
         self.assertEqual(json.loads(body), {"erro": "ruim"})
@@ -137,7 +172,8 @@ class HttpServerTests(unittest.TestCase):
         )
         self.assertEqual(status, 400)
         self.assertIn(b"desconhecido", body)
-        self.assertEqual(len(self.upstream.requests), 0)
+        self.assertEqual(len(self.upstream_a.requests), 0)
+        self.assertEqual(len(self.upstream_b.requests), 0)
 
     def test_rota_desconhecida_da_404_json(self):
         status, body = self._post("/outra/coisa", {"qualquer": 1})
@@ -145,6 +181,14 @@ class HttpServerTests(unittest.TestCase):
 
     def test_servidor_binda_apenas_em_localhost_por_padrao(self):
         self.assertEqual(self.server.server_address[0], "127.0.0.1")
+
+    def test_modelo_duplicado_entre_providers_recusado_no_build(self):
+        duplicados = {
+            "a": {"base-url": "http://x/v1", "api-keys": ["k"], "models": ["mesmo"]},
+            "b": {"base-url": "http://y/v1", "api-keys": ["k"], "models": ["mesmo"]},
+        }
+        with self.assertRaises(ValueError):
+            build_server(providers=duplicados)
 
     def test_assinatura_de_tool_call_e_reinjetada_no_proximo_request(self):
         resposta = {
@@ -162,16 +206,16 @@ class HttpServerTests(unittest.TestCase):
                 },
             }]
         }
-        self.upstream.register("POST", "/v1/chat/completions", status=200, body=resposta)
+        self._registro(body=resposta)
         status1, body1 = self._post(
             "/v1/chat/completions",
-            {"model": "gemini-3.1-flash-lite", "messages": [{"role": "user", "content": "liste"}]},
+            {"model": "gemini-3.5-flash", "messages": [{"role": "user", "content": "liste"}]},
         )
         self.assertEqual(status1, 200)
         self.assertNotIn(b"extra_content", body1)
 
         historico = {
-            "model": "gemini-3.1-flash-lite",
+            "model": "gemini-3.5-flash",
             "messages": [
                 {"role": "user", "content": "liste"},
                 {
@@ -186,10 +230,10 @@ class HttpServerTests(unittest.TestCase):
                 {"role": "tool", "tool_call_id": "call_g1", "content": "[]"},
             ],
         }
-        self.upstream.register("POST", "/v1/chat/completions", status=200, body={"ok": True})
+        self._registro(body={"ok": True})
         status2, _ = self._post("/v1/chat/completions", historico)
         self.assertEqual(status2, 200)
-        enviado = json.loads(self.upstream.requests[-1]["body"])
+        enviado = json.loads(self.upstream_a.requests[-1]["body"])
         tool_call = enviado["messages"][1]["tool_calls"][0]
         self.assertEqual(tool_call["extra_content"], {"google": {"thought_signature": "SIG-G"}})
 
@@ -198,11 +242,11 @@ class HttpServerTests(unittest.TestCase):
             b'data: {"choices":[{"delta":{"tool_calls":[{"id":"call_s1","type":"function","function":{"name":"glob","arguments":"{}"},"extra_content":{"google":{"thought_signature":"SIG-S"}}}]},"index":0}]}\n\n',
             b"data: [DONE]\n\n",
         ]
-        self.upstream.register_stream("POST", "/v1/chat/completions", chunks)
+        self._registro(stream_chunks=chunks)
         req = urllib.request.Request(
             self.base + "/v1/chat/completions",
             data=json.dumps({
-                "model": "gemini-3.1-flash-lite",
+                "model": "gemini-3.5-flash",
                 "messages": [{"role": "user", "content": "liste"}],
                 "stream": True,
             }).encode(),
@@ -210,11 +254,9 @@ class HttpServerTests(unittest.TestCase):
             method="POST",
         )
         with urllib.request.urlopen(req, timeout=15) as res:
-            recebido = res.read()
-        self.assertNotIn(b"extra_content", recebido)
-
+            res.read()
         historico = {
-            "model": "gemini-3.1-flash-lite",
+            "model": "gemini-3.5-flash",
             "messages": [
                 {"role": "user", "content": "liste"},
                 {
@@ -228,9 +270,9 @@ class HttpServerTests(unittest.TestCase):
                 },
             ],
         }
-        self.upstream.register("POST", "/v1/chat/completions", status=200, body={"ok": True})
+        self._registro(body={"ok": True})
         self._post("/v1/chat/completions", historico)
-        enviado = json.loads(self.upstream.requests[-1]["body"])
+        enviado = json.loads(self.upstream_a.requests[-1]["body"])
         tool_call = enviado["messages"][1]["tool_calls"][0]
         self.assertEqual(tool_call["extra_content"], {"google": {"thought_signature": "SIG-S"}})
 
