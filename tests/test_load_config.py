@@ -147,6 +147,33 @@ class LoadConfigTests(unittest.TestCase):
         self.assertIn("model-keys", mensagem)
         self.assertIn("providers", mensagem)
 
+    def test_exclude_models_opcional_e_validado(self):
+        casos_invalidos = ("texto", [""], [1], {"a": 1})
+        for exclude in casos_invalidos:
+            with self.subTest(exclude=exclude):
+                self._escrever({
+                    "providers": {
+                        "gemini": {
+                            "api-keys": ["sk-a"],
+                            "models": ["m"],
+                            "exclude-models": exclude,
+                        }
+                    }
+                })
+                with self.assertRaises(ValueError):
+                    load_config()
+        for valido in (None, [], ["*tts*", "veo-*"]):
+            with self.subTest(exclude=valido):
+                provider = {"api-keys": ["sk-a"], "models": ["m"]}
+                if valido is not None:
+                    provider["exclude-models"] = valido
+                self._escrever({"providers": {"gemini": provider}})
+                dados = load_config()
+                self.assertEqual(
+                    dados["providers"]["gemini"].get("exclude-models", []),
+                    valido if valido is not None else [],
+                )
+
     def test_defaults_conhecem_gemini(self):
         self.assertIn(
             "https://generativelanguage.googleapis.com/v1beta/openai",
