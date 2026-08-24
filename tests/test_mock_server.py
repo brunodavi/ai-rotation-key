@@ -83,10 +83,12 @@ class MockServerTests(unittest.TestCase):
                 outro.stop()
 
     def test_body_lido_antes_de_responder_mantendo_keep_alive(self):
-        self.servidor.register("POST", "/eco", status=200, body=b"fim")
+        self.servidor.register("POST", "/eco", status=200, body=b"fim1")
+        self.servidor.register("POST", "/eco", status=200, body=b"fim2")
         s1, _, _ = self._request("/eco", data=b'{"grande": "' + b"x" * 5000 + b'"}', method="POST")
-        s2, _, _ = self._request("/eco", data=b"{}", method="POST")
+        s2, _, b2 = self._request("/eco", data=b"{}", method="POST")
         self.assertEqual((s1, s2), (200, 200))
+        self.assertEqual(b2, b"fim2")
 
 
 if __name__ == "__main__":
