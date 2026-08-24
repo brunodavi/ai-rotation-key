@@ -156,6 +156,26 @@ class HttpServerTests(unittest.TestCase):
         self.assertNotIn(b"extra_content", recebido)
         self.assertTrue(recebido.endswith(b"data: [DONE]\n\n"))
 
+    def test_stream_e_nao_stream_enviam_user_agent_do_projeto(self):
+        corpo = {"choices": [{"message": {"role": "assistant", "content": "oi"}}]}
+        self._registro(body=corpo)
+        self._post("/v1/chat/completions", {
+            "model": "gemini-3.5-flash",
+            "messages": [{"role": "user", "content": "oi"}],
+        })
+        ua_nao_stream = self.upstream_a.requests[-1]["headers"].get("User-Agent", "")
+        chunks = [b'data: {"choices":[{"delta":{"content":"1"}}]}\n\n', b"data: [DONE]\n\n"]
+        self._registro(stream_chunks=chunks)
+        self._post("/v1/chat/completions", {
+            "model": "gemini-3.5-flash",
+            "messages": [{"role": "user", "content": "oi"}],
+            "stream": True,
+        })
+        ua_stream = self.upstream_a.requests[-1]["headers"].get("User-Agent", "")
+        for ua in (ua_nao_stream, ua_stream):
+            self.assertTrue(ua.startswith("ai-rotation-key/"), f"User-Agent inesperado: {ua!r}")
+            self.assertNotIn("Python", ua)
+
     def test_400_passa_direto_com_corpo_do_upstream(self):
         self._registro(status=400, body={"erro": "ruim"})
         status, body = self._post(

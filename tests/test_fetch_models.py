@@ -43,6 +43,13 @@ class FetchModelsTests(unittest.TestCase):
         auth = self.upstream.requests[-1]["headers"]["Authorization"]
         self.assertEqual(auth, "Bearer sk-minha-chave")
 
+    def test_envia_user_agent_do_projeto_nao_python(self):
+        self._registrar(payload=_payload("m"))
+        fetch_models(self.upstream.url("/v1"), "sk-chave")
+        ua = self.upstream.requests[-1]["headers"].get("User-Agent", "")
+        self.assertTrue(ua.startswith("ai-rotation-key/"), f"User-Agent inesperado: {ua!r}")
+        self.assertNotIn("Python", ua)
+
     def test_base_url_com_barra_final_nao_duplica_barra(self):
         self._registrar(payload=_payload("m"))
         modelos = fetch_models(self.upstream.url("/v1") + "/", "sk")
