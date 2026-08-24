@@ -12,7 +12,7 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
   - Única exceção: setuptools como build-backend do empacotamento (nativo do Python)
 - Empacotamento: pyproject.toml com `[project.scripts]`; o CLI vira comando `ai-rotation-key` (atalho: `airkey`) após `pip install -e .`
 - Python alvo: 3.14.6 (versão instalada neste Termux)
-- CLI: `init` (cria config.json de exemplo), `edit` (abre o config), `start` (sobe servidor), `export` (registra o provider no opencode), `sync-models [provider]` (adiciona faltantes de /models ao config, respeitando exclude-models; exit 1 com falha parcial)
+- CLI: `init` (cria config.json de exemplo), `edit` (abre o config), `start` (sobe servidor), `export` (registra o provider no opencode), `sync-models [provider]` (adiciona faltantes de /models ao config, respeitando filter-models; exit 1 com falha parcial)
   - Parsing com argparse
   - `edit` usa `$EDITOR` com fallback `vi` (subprocess.run); flag `--opencode` abre o config do opencode
   - `export` adiciona este servidor como provider em ~/.config/opencode/config.json: lê o JSON existente, checa se o provider já existe antes de adicionar (idempotente, não duplica), preserva os demais providers e escreve de volta com módulo json
@@ -77,7 +77,7 @@ Decisões do dono do projeto registradas como subtarefas; cada item = uma branch
 ## UX (em cima da fundação)
 - [x] `feat/edit-opencode` — flag `--opencode` no comando `edit`: abre o config do opencode
       (~/.config/opencode/config.json) no $EDITOR com o mesmo fluxo atual ($EDITOR, fallback vi).
-- [ ] `feat/filter-models` — SUBSTITUI exclude-models por filter-models (lista de globs):
+- [x] `feat/filter-models` — SUBSTITUI exclude-models por filter-models (lista de globs):
       padrão positivo = allowlist; prefixo `!` = remove do resultado; sem positivos = tudo menos
       os negativos (ex.: ["*free*", "!*vision*"]). Aplica no sync-models e na validação da carga;
       config com exclude-models é rejeitado com orientação de migração (mesmo tratamento do model-keys).

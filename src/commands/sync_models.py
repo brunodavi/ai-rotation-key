@@ -12,11 +12,11 @@ def _imprimir_relatorio(resultado):
         if rel["adicionados"]:
             print(
                 f"{nome}: +{len(rel['adicionados'])} adicionados · "
-                f"{rel['excluidos']} excluídos pelo exclude-models · "
+                f"{rel['excluidos']} filtrados por filter-models · "
                 f"{rel['existentes']} já existiam"
             )
         elif rel["excluidos"]:
-            print(f"{nome}: inalterado ({rel['excluidos']} excluídos pelo exclude-models)")
+            print(f"{nome}: inalterado ({rel['excluidos']} filtrados por filter-models)")
         else:
             print(f"{nome}: inalterado — nada a adicionar")
     if resultado.salvo:

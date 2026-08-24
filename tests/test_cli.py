@@ -56,7 +56,7 @@ class CliRoutingTests(unittest.TestCase):
         self.assertEqual(ctx.exception.code, 1)
         texto = saida.getvalue()
         self.assertIn("gemini: +2 adicionados", texto)
-        self.assertIn("31 excluídos pelo exclude-models", texto)
+        self.assertIn("31 filtrados por filter-models", texto)
         self.assertIn("2 já existiam", texto)
         self.assertIn("outro: inalterado", texto)
         self.assertIn("quebrado: erro HTTP 401", texto)

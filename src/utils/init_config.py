@@ -8,19 +8,19 @@ EXEMPLO_CONFIG = {
     "providers": {
         "gemini": {
             "api-keys": ["sk-exemplo-1", "sk-exemplo-2"],
-            "exclude-models": [
-                "*tts*",
-                "*image*",
-                "*embedding*",
-                "veo-*",
-                "*lyria*",
-                "*robotics*",
-                "*native-audio*",
-                "*live*",
-                "aqa",
-                "antigravity*",
-                "*computer-use*",
-                "*deep-research*",
+            "filter-models": [
+                "!*tts*",
+                "!*image*",
+                "!*embedding*",
+                "!veo-*",
+                "!*lyria*",
+                "!*robotics*",
+                "!*native-audio*",
+                "!*live*",
+                "!aqa",
+                "!antigravity*",
+                "!*computer-use*",
+                "!*deep-research*",
             ],
             "models": ["gemini-3.5-flash", "gemini-3.1-flash-lite"],
         }

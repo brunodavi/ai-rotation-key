@@ -53,6 +53,16 @@ def _validar_providers(dados):
             "formato antigo ('model-keys') não é mais suportado — migre para "
             "'providers': {\"<provider>\": {\"api-keys\": [...], \"models\": [...]}}"
         )
+    providers_dados = dados.get("providers")
+    if isinstance(providers_dados, dict) and any(
+        isinstance(cfg, dict) and "exclude-models" in cfg
+        for cfg in providers_dados.values()
+    ):
+        raise ValueError(
+            "formato antigo ('exclude-models') não é mais suportado — migre para 'filter-models': "
+            "padrões positivos são allowlist e '!padrao' remove (ex.: [\"*free*\", \"!*vision*\"]; "
+            "sem positivos, tudo menos os negativos)"
+        )
     providers = dados.get("providers")
     if not isinstance(providers, dict) or not providers:
         raise ValueError("config precisa de 'providers' como dict não-vazio")
@@ -72,12 +82,13 @@ def _validar_providers(dados):
             isinstance(modelo, str) and modelo for modelo in modelos
         ):
             raise ValueError(f"'models' do provider '{nome}' deve ser lista não-vazia de strings")
-        exclude = cfg.get("exclude-models", [])
-        if not isinstance(exclude, list) or not all(
-            isinstance(p, str) and p for p in exclude
+        filtros = cfg.get("filter-models", [])
+        if not isinstance(filtros, list) or not all(
+            isinstance(p, str) and p for p in filtros
         ):
             raise ValueError(
-                f"'exclude-models' do provider '{nome}' deve ser lista de padrões (strings)"
+                f"'filter-models' do provider '{nome}' deve ser lista de padrões (strings) "
+                f"não-vazios; '!padrao' exclui"
             )
         base_url = cfg.get("base-url") or default_base_url(nome)
         if not base_url:
@@ -94,7 +105,7 @@ def _validar_providers(dados):
         providers[nome] = {
             "base-url": base_url,
             "api-keys": api_keys,
-            "exclude-models": exclude,
+            "filter-models": filtros,
             "models": modelos,
         }
     return providers

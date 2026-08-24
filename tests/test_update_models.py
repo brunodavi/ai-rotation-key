@@ -39,7 +39,7 @@ class SyncModelsTests(unittest.TestCase):
             upstream.stop()
         shutil.rmtree(self.scratch, ignore_errors=True)
 
-    def _escrever_config(self, gemini_models=None, gemini_exclude=None):
+    def _escrever_config(self, gemini_models=None, gemini_filtros=None):
         providers = {
             "gemini": {
                 "base-url": self.upstream_a.url("/v1"),
@@ -49,12 +49,12 @@ class SyncModelsTests(unittest.TestCase):
             "outro": {
                 "base-url": self.upstream_b.url("/v1"),
                 "api-keys": ["sk-b1"],
-                "exclude-models": ["*proibido*"],
+                "filter-models": ["!*proibido*"],
                 "models": ["m-b"],
             },
         }
-        if gemini_exclude is not None:
-            providers["gemini"]["exclude-models"] = gemini_exclude
+        if gemini_filtros is not None:
+            providers["gemini"]["filter-models"] = gemini_filtros
         caminho = self.home / ".config" / "ai-rotation-key" / "config.json"
         caminho.parent.mkdir(parents=True, exist_ok=True)
         caminho.write_text(
@@ -102,8 +102,8 @@ class SyncModelsTests(unittest.TestCase):
         self.assertFalse(resultado.salvo)
         self.assertEqual(antes, depois)
 
-    def test_exclude_filtra_candidatos_sem_tocar_existentes(self):
-        self._escrever_config(gemini_models=["tts-velho"], gemini_exclude=["*tts*"])
+    def test_filter_modelos_filtra_candidatos_sem_tocar_existentes(self):
+        self._escrever_config(gemini_models=["tts-velho"], gemini_filtros=["!*tts*"])
         self.upstream_a.register(
             "GET", "/v1/models", body=_payload("tts-novo", "chat-ok", "tts-velho")
         )
@@ -113,6 +113,18 @@ class SyncModelsTests(unittest.TestCase):
         self.assertEqual(rel["excluidos"], 2)
         modelos = self._ler_config()["providers"]["gemini"]["models"]
         self.assertEqual(modelos, ["tts-velho", "chat-ok"])
+
+    def test_filter_positivo_e_allowlist_e_negativo_vence(self):
+        self._escrever_config(gemini_models=["ja-tem"], gemini_filtros=["*free*", "!*vision*"])
+        self.upstream_a.register(
+            "GET",
+            "/v1/models",
+            body=_payload("a-free", "b-free-vision", "pago-1"),
+        )
+        resultado = sync_models(apenas="gemini")
+        rel = resultado.relatorios["gemini"]
+        self.assertEqual(rel["adicionados"], ["a-free"])
+        self.assertEqual(rel["excluidos"], 2)
 
     def test_apenas_um_provider_nao_toca_os_outros(self):
         self._escrever_config()
