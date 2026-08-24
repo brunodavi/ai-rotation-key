@@ -58,8 +58,8 @@ class ExportProviderTests(unittest.TestCase):
         self.assertEqual(
             bloco["models"],
             {
-                "gemini-3.5-flash": {"name": "gemini-3.5-flash"},
-                "gpt-4o-mini": {"name": "gpt-4o-mini"},
+                "gemini/gemini-3.5-flash": {"name": "gemini/gemini-3.5-flash"},
+                "openai/gpt-4o-mini": {"name": "openai/gpt-4o-mini"},
             },
         )
 
@@ -114,7 +114,7 @@ class ExportProviderTests(unittest.TestCase):
         self.assertEqual(acao, "atualizado")
         bloco = json.loads(self._opencode_path.read_text(encoding="utf-8"))["provider"][PROVIDER_ID]
         self.assertEqual(bloco["options"]["baseURL"], "http://127.0.0.1:9500/v1")
-        self.assertEqual(list(bloco["models"]), ["novo"])
+        self.assertEqual(list(bloco["models"]), ["gemini/novo"])
 
     def test_json_malformado_levanta_value_error_sem_destruir_arquivo(self):
         self._nosso_config({"gemini": {"api-keys": ["sk-1"], "models": ["m"]}})

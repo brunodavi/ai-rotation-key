@@ -66,7 +66,6 @@ def _validar_providers(dados):
     providers = dados.get("providers")
     if not isinstance(providers, dict) or not providers:
         raise ValueError("config precisa de 'providers' como dict não-vazio")
-    vistos = {}
     for nome, cfg in providers.items():
         if not isinstance(nome, str) or not nome:
             raise ValueError(f"nome de provider inválido: {nome!r}")
@@ -96,12 +95,6 @@ def _validar_providers(dados):
                 f"provider '{nome}' é desconhecido e não tem 'base-url' — informe uma, "
                 f"ex.: \"base-url\": \"https://api.exemplo.com/v1\""
             )
-        for modelo in modelos:
-            if modelo in vistos and vistos[modelo] != nome:
-                raise ValueError(
-                    f"modelo '{modelo}' declarado em dois providers ('{vistos[modelo]}' e '{nome}')"
-                )
-            vistos[modelo] = nome
         providers[nome] = {
             "base-url": base_url,
             "api-keys": api_keys,

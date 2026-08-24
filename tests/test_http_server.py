@@ -129,7 +129,77 @@ class HttpServerTests(unittest.TestCase):
         with urllib.request.urlopen(self.base + "/v1/models", timeout=10) as res:
             dados = json.loads(res.read())
         ids = [m["id"] for m in dados["data"]]
-        self.assertEqual(ids, ["gemini-3.5-flash", "gemini-3.1-flash-lite", "modelo-outro"])
+        self.assertEqual(ids, [
+            "gemini/gemini-3.5-flash",
+            "gemini/gemini-3.1-flash-lite",
+            "outro/modelo-outro",
+        ])
+
+    def test_request_prefixado_remove_o_prefixo_antes_do_upstream(self):
+        self.upstream_b.register("POST", "/v1/chat/completions", status=200, body={"de": "outro"})
+        status, _ = self._post(
+            "/v1/chat/completions",
+            {"model": "outro/modelo-outro", "messages": [{"role": "user", "content": "oi"}]},
+        )
+        self.assertEqual(status, 200)
+        enviado = json.loads(self.upstream_b.requests[-1]["body"])
+        self.assertEqual(enviado["model"], "modelo-outro")
+
+    def test_modelo_com_slash_proprio_recebe_namespace_e_upstream_ve_inteiro(self):
+        self.providers["openrouter"] = {
+            "base-url": self.upstream_a.url("/or"),
+            "api-keys": ["sk-o1"],
+            "models": ["poolside/laguna:free"],
+        }
+        self.server.shutdown()
+        self.server.server_close()
+        self.server_thread.join(timeout=5)
+        self.server = build_server(providers=self.providers, port=0)
+        self.server_thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.server_thread.start()
+        self.upstream_a.register("POST", "/or/chat/completions", status=200, body={"ok": 1})
+        status, body = self._post(
+            "/v1/chat/completions",
+            {"model": "openrouter/poolside/laguna:free", "messages": [{"role": "user", "content": "oi"}]},
+        )
+        self.assertEqual(status, 200)
+        enviado = json.loads(self.upstream_a.requests[-1]["body"])
+        self.assertEqual(enviado["model"], "poolside/laguna:free")
+
+    def test_mesmo_modelo_em_dois_providers_e_aceito_no_build(self):
+        providers = {
+            "a": {
+                "base-url": self.upstream_a.url("/v1"),
+                "api-keys": ["sk-a"],
+                "models": ["comum"],
+            },
+            "b": {
+                "base-url": self.upstream_b.url("/v1"),
+                "api-keys": ["sk-b"],
+                "models": ["comum"],
+            },
+        }
+        server = build_server(providers=providers, port=0)
+        server.server_close()
+        ids = server.model_ids
+        self.assertEqual(sorted(ids), ["a/comum", "b/comum"])
+
+    def test_nome_pelado_ambiguo_da_400_pedindo_qualificacao(self):
+        self.providers["outro"]["models"].append("gemini-3.5-flash")
+        self.server.shutdown()
+        self.server.server_close()
+        self.server_thread.join(timeout=5)
+        self.server = build_server(providers=self.providers, port=0)
+        self.server_thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.server_thread.start()
+        status, body = self._post(
+            "/v1/chat/completions",
+            {"model": "gemini-3.5-flash", "messages": [{"role": "user", "content": "oi"}]},
+        )
+        self.assertEqual(status, 400)
+        texto = body.decode()
+        self.assertIn("gemini/", texto)
+        self.assertIn("outro/", texto)
 
     def test_get_raiz_responde_saude(self):
         with urllib.request.urlopen(self.base + "/", timeout=10) as res:
@@ -202,13 +272,14 @@ class HttpServerTests(unittest.TestCase):
     def test_servidor_binda_apenas_em_localhost_por_padrao(self):
         self.assertEqual(self.server.server_address[0], "127.0.0.1")
 
-    def test_modelo_duplicado_entre_providers_recusado_no_build(self):
+    def test_modelo_duplicado_entre_providers_nao_recusado_no_build(self):
         duplicados = {
             "a": {"base-url": "http://x/v1", "api-keys": ["k"], "models": ["mesmo"]},
             "b": {"base-url": "http://y/v1", "api-keys": ["k"], "models": ["mesmo"]},
         }
-        with self.assertRaises(ValueError):
-            build_server(providers=duplicados)
+        server = build_server(providers=duplicados)
+        server.server_close()
+        self.assertEqual(sorted(server.model_ids), ["a/mesmo", "b/mesmo"])
 
     def test_assinatura_de_tool_call_e_reinjetada_no_proximo_request(self):
         resposta = {

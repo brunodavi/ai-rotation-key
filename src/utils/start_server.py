@@ -58,10 +58,12 @@ class ProxyHandler(BaseHTTPRequestHandler):
 
         dados = sanitize_request(dados if isinstance(dados, dict) else {})
         modelo = dados.get("model") or self.server.model_ids[0]
-        provider = self.server.model_to_provider.get(modelo)
-        if provider is None:
-            self._enviar_json(400, {"error": {"message": f"modelo não configurado: '{modelo}'"}})
+        try:
+            provider, modelo_bare = self.server.resolver(modelo)
+        except ValueError as exc:
+            self._enviar_json(400, {"error": {"message": str(exc)}})
             return
+        dados["model"] = modelo_bare
         self.server.signature_cache.inject(dados.get("messages") or [])
         payload = json.dumps(dados).encode("utf-8")
         url = self.server.providers[provider]["base-url"].rstrip("/") + _SUFIXO_CHAT
@@ -133,25 +135,42 @@ class ProxyHandler(BaseHTTPRequestHandler):
 
 def build_server(providers, port=0, host="127.0.0.1"):
     model_to_provider = {}
+    bare_to_providers = {}
+    model_ids = []
+    vistos = set()
     for nome, cfg in providers.items():
         for modelo in cfg["models"]:
-            if modelo in model_to_provider and model_to_provider[modelo] != nome:
-                raise ValueError(
-                    f"modelo '{modelo}' declarado em dois providers "
-                    f"('{model_to_provider[modelo]}' e '{nome}')"
-                )
-            model_to_provider[modelo] = nome
+            namespaced = f"{nome}/{modelo}"
+            if namespaced in vistos:
+                continue
+            vistos.add(namespaced)
+            model_ids.append(namespaced)
+            model_to_provider[namespaced] = nome
+            bare_to_providers.setdefault(modelo, []).append(nome)
+
+    def resolver(pedido):
+        alvo = model_to_provider.get(pedido)
+        if alvo is not None:
+            return alvo, pedido.split("/", 1)[1]
+        candidatos = bare_to_providers.get(pedido, [])
+        if len(candidatos) == 1:
+            return candidatos[0], pedido
+        if len(candidatos) > 1:
+            opcoes = ", ".join(f"{n}/{pedido}" for n in candidatos)
+            raise ValueError(
+                f"modelo ambíguo: '{pedido}' existe em vários providers — "
+                f"qualifique com um de: {opcoes}"
+            )
+        raise ValueError(f"modelo não configurado: '{pedido}'")
+
     server = ThreadingHTTPServer((host, port), ProxyHandler)
     server.providers = providers
     server.round_robin = RoundRobin(
         {nome: cfg["api-keys"] for nome, cfg in providers.items()}
     )
     server.model_to_provider = model_to_provider
-    server.model_ids = [
-        modelo
-        for nome in providers
-        for modelo in providers[nome]["models"]
-    ]
+    server.model_ids = model_ids
+    server.resolver = resolver
     server.signature_cache = SignatureCache()
     return server
 
