@@ -26,7 +26,7 @@ pip install -e .
 
 ```sh
 # Cria config de exemplo em ~/.config/ai-rotation-key/config.json
-ai-rotation-key init
+ai-rotation-key init   # ou use o atalho: airkey init
 
 # Abre o config no $EDITOR (fallback: vi)
 ai-rotation-key edit

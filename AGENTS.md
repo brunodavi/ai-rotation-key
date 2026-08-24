@@ -10,7 +10,7 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
 # Tech
 - Python puro: ZERO dependências, runtime e dev. Sem requirements.txt
   - Única exceção: setuptools como build-backend do empacotamento (nativo do Python)
-- Empacotamento: pyproject.toml com `[project.scripts]`; o CLI vira comando `ai-rotation-key` após `pip install -e .`
+- Empacotamento: pyproject.toml com `[project.scripts]`; o CLI vira comando `ai-rotation-key` (atalho: `airkey`) após `pip install -e .`
 - Python alvo: 3.14.6 (versão instalada neste Termux)
 - CLI: `init` (cria config.json de exemplo), `edit` (abre o config), `start` (sobe servidor), `export` (registra o provider no opencode)
   - Parsing com argparse

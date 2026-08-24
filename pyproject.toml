@@ -17,6 +17,7 @@ Repository = "https://github.com/brunodavi/ai-rotation-key"
 
 [project.scripts]
 ai-rotation-key = "main:main"
+airkey = "main:main"
 
 [tool.setuptools]
 py-modules = ["main"]
