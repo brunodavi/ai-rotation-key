@@ -178,32 +178,45 @@ class LoadConfigTests(unittest.TestCase):
         self.assertIn("model-keys", mensagem)
         self.assertIn("providers", mensagem)
 
-    def test_exclude_models_opcional_e_validado(self):
+    def test_exclude_models_formato_antigo_rejeitado_com_orientacao(self):
+        self._escrever({
+            "providers": {
+                "gemini": {
+                    "api-keys": ["sk-a"],
+                    "models": ["m"],
+                    "exclude-models": ["*tts*"],
+                }
+            }
+        })
+        with self.assertRaises(ValueError) as ctx:
+            load_config()
+        mensagem = str(ctx.exception)
+        self.assertIn("exclude-models", mensagem)
+        self.assertIn("filter-models", mensagem)
+
+    def test_filter_models_opcional_e_validado(self):
         casos_invalidos = ("texto", [""], [1], {"a": 1})
-        for exclude in casos_invalidos:
-            with self.subTest(exclude=exclude):
+        for filtros in casos_invalidos:
+            with self.subTest(filtros=filtros):
                 self._escrever({
                     "providers": {
                         "gemini": {
                             "api-keys": ["sk-a"],
                             "models": ["m"],
-                            "exclude-models": exclude,
+                            "filter-models": filtros,
                         }
                     }
                 })
                 with self.assertRaises(ValueError):
                     load_config()
-        for valido in (None, [], ["*tts*", "veo-*"]):
-            with self.subTest(exclude=valido):
+        for valido in ([], ["*free*", "!*vision*"]):
+            with self.subTest(filtros=valido):
                 provider = {"api-keys": ["sk-a"], "models": ["m"]}
-                if valido is not None:
-                    provider["exclude-models"] = valido
+                if valido:
+                    provider["filter-models"] = valido
                 self._escrever({"providers": {"gemini": provider}})
                 dados = load_config()
-                self.assertEqual(
-                    dados["providers"]["gemini"].get("exclude-models", []),
-                    valido if valido is not None else [],
-                )
+                self.assertEqual(dados["providers"]["gemini"]["filter-models"], valido)
 
     def test_defaults_conhecem_gemini(self):
         self.assertEqual(

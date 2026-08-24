@@ -1,4 +1,3 @@
-import fnmatch
 import json
 import os
 from collections import namedtuple
@@ -6,6 +5,7 @@ from pathlib import Path
 
 from src.utils.config_paths import config_path
 from src.utils.fetch_models import FetchModelsError, fetch_models
+from src.utils.filter_models import filtrar_modelos
 from src.utils.load_config import load_config
 
 SyncResult = namedtuple("SyncResult", "relatorios salvo houve_erro path")
@@ -43,15 +43,13 @@ def sync_models(path=None, apenas=None):
 
 def sync_provider(nome, cfg):
     descobertos = fetch_models(cfg["base-url"], cfg["api-keys"][0])
-    padroes = cfg.get("exclude-models", [])
+    aceitos = filtrar_modelos(descobertos, cfg.get("filter-models", []))
     atuais = set(cfg["models"])
-    excluidos = 0
+    excluidos = len(descobertos) - len(aceitos)
     adicionados = []
-    for modelo in descobertos:
-        if any(fnmatch.fnmatchcase(modelo, padrao) for padrao in padroes):
-            excluidos += 1
-        elif modelo not in atuais and modelo not in adicionados:
+    for modelo in aceitos:
+        if modelo not in atuais and modelo not in adicionados:
             adicionados.append(modelo)
     cfg["models"].extend(adicionados)
-    existentes = len(descobertos) - excluidos - len(adicionados)
+    existentes = len(aceitos) - len(adicionados)
     return {"adicionados": adicionados, "excluidos": excluidos, "existentes": existentes}

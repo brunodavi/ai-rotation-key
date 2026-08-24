@@ -44,7 +44,7 @@ flowchart TD
 | `signature_cache` | `tool_call.id → thought_signature`; coleta na resposta, injeção no histórico |
 | `forward_request` | política de rotação contra o upstream (`urllib`) |
 | `fetch_models` | GET `{base-url}/models` com Bearer da primeira chave; parseia ids (tira prefixo `models/`) |
-| `update_models` | sincroniza o config: adiciona faltantes respeitando `exclude-models` (glob), relatório por provider |
+| `update_models` | sincroniza o config: adiciona faltantes respeitando `filter-models` (globs com `!` de exclusão), relatório por provider |
 | `start_server` | `ThreadingHTTPServer`, rotas `/v1/*`, escuta apenas em `127.0.0.1` |
 | `export_provider` | registra o provider no opencode (idempotente, preserva os demais) |
 | `find_free_port` | anti-colisão de porta (+1 até achar livre) |
