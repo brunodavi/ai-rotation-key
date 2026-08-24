@@ -3,9 +3,14 @@ from pathlib import Path
 
 from src.utils.config_paths import config_path
 
-EXAMPLE_CONFIG = {
-    "model-keys": {"gemini-3.5-flash": ["sk-exemplo-1", "sk-exemplo-2"]},
+EXEMPLO_CONFIG = {
     "port": 8792,
+    "providers": {
+        "gemini": {
+            "api-keys": ["sk-exemplo-1", "sk-exemplo-2"],
+            "models": ["gemini-3.5-flash", "gemini-3.1-flash-lite"],
+        }
+    },
 }
 
 
@@ -16,5 +21,5 @@ def init_config(path=None):
     if path.exists():
         return path, False
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(EXAMPLE_CONFIG, indent=2) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(EXEMPLO_CONFIG, indent=2) + "\n", encoding="utf-8")
     return path, True

@@ -3,8 +3,30 @@ from pathlib import Path
 
 from src.utils.config_paths import DEFAULT_PORT, config_path
 
+DEFAULT_BASE_URLS = {
+    "gemini": "https://generativelanguage.googleapis.com/v1beta/openai",
+}
 
-DEFAULT_BASE_URLS = {}
+_EXEMPLO = {
+    "port": 8792,
+    "providers": {
+        "gemini": {
+            "api-keys": ["sk-exemplo-1", "sk-exemplo-2"],
+            "models": ["gemini-3.5-flash", "gemini-3.1-flash-lite"],
+        }
+    },
+}
+
+
+def init_config(path=None):
+    if path is None:
+        path = config_path()
+    path = Path(path)
+    if path.exists():
+        return path, False
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(_EXEMPLO, indent=2) + "\n", encoding="utf-8")
+    return path, True
 
 
 def load_config(path=None):
@@ -17,25 +39,53 @@ def load_config(path=None):
         dados = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         raise ValueError(f"config inválido ({path}): JSON quebrado — {exc}") from exc
-    model_keys = _validar_model_keys(dados.get("model-keys"))
     port = _validar_port(dados.get("port", DEFAULT_PORT))
-    return {"model-keys": model_keys, "port": port}
-
-
-def _validar_model_keys(model_keys):
-    if not isinstance(model_keys, dict) or not model_keys:
-        raise ValueError("config precisa de 'model-keys' como dict não-vazio {modelo: [chaves]}")
-    for modelo, chaves in model_keys.items():
-        if not isinstance(modelo, str) or not modelo:
-            raise ValueError(f"nome de modelo inválido em 'model-keys': {modelo!r}")
-        if not isinstance(chaves, list) or not chaves:
-            raise ValueError(f"chaves do modelo '{modelo}' devem ser lista não-vazia")
-        if not all(isinstance(chave, str) and chave for chave in chaves):
-            raise ValueError(f"chaves do modelo '{modelo}' devem ser strings não-vazias")
-    return model_keys
+    providers = _validar_providers(dados)
+    return {"port": port, "providers": providers}
 
 
 def _validar_port(port):
     if isinstance(port, bool) or not isinstance(port, int) or port <= 0:
         raise ValueError(f"'port' deve ser int positivo, recebido {port!r}")
     return port
+
+
+def _validar_providers(dados):
+    if "model-keys" in dados:
+        raise ValueError(
+            "formato antigo ('model-keys') não é mais suportado — migre para "
+            "'providers': {\"<provider>\": {\"api-keys\": [...], \"models\": [...]}}"
+        )
+    providers = dados.get("providers")
+    if not isinstance(providers, dict) or not providers:
+        raise ValueError("config precisa de 'providers' como dict não-vazio")
+    vistos = {}
+    for nome, cfg in providers.items():
+        if not isinstance(nome, str) or not nome:
+            raise ValueError(f"nome de provider inválido: {nome!r}")
+        if not isinstance(cfg, dict):
+            raise ValueError(f"provider '{nome}' deve ser um objeto")
+        api_keys = cfg.get("api-keys")
+        if not isinstance(api_keys, list) or not api_keys or not all(
+            isinstance(chave, str) and chave for chave in api_keys
+        ):
+            raise ValueError(f"'api-keys' do provider '{nome}' deve ser lista não-vazia de strings")
+        modelos = cfg.get("models")
+        if not isinstance(modelos, list) or not modelos or not all(
+            isinstance(modelo, str) and modelo for modelo in modelos
+        ):
+            raise ValueError(f"'models' do provider '{nome}' deve ser lista não-vazia de strings")
+        base_url = cfg.get("base-url") or DEFAULT_BASE_URLS.get(nome)
+        if not base_url:
+            raise ValueError(
+                f"provider '{nome}' é desconhecido e não tem 'base-url' — informe uma, "
+                f"ex.: \"base-url\": \"https://api.exemplo.com/v1\""
+            )
+        for modelo in modelos:
+            if modelo in vistos and vistos[modelo] != nome:
+                raise ValueError(
+                    f"modelo '{modelo}' declarado em dois providers ('{vistos[modelo]}' e '{nome}')"
+                )
+            vistos[modelo] = nome
+        providers[nome] = {"base-url": base_url, "api-keys": api_keys, "models": modelos}
+    return providers
