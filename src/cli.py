@@ -1,9 +1,16 @@
 import argparse
 
 from src.utils.edit_config import edit_config
-from src.utils.export_provider import export_provider
+from src.utils.export_provider import PROVIDER_ID, export_provider
 from src.utils.init_config import init_config
 from src.utils.start_server import start_server
+
+_MENSAGENS_EXPORT = {
+    "criado": "provider registrado — config do opencode criado em {path}",
+    "adicionado": f"provider '{PROVIDER_ID}' adicionado em {{path}}",
+    "atualizado": f"provider '{PROVIDER_ID}' atualizado em {{path}} (baseURL/models sincronizados)",
+    "inalterado": f"provider '{PROVIDER_ID}' já estava configurado em {{path}}",
+}
 
 
 def _build_parser():
@@ -34,4 +41,8 @@ def main(argv=None):
             print(f"config criado em {path}")
         else:
             print(f"config já existe em {path} — sem alterar")
+    if args.command == "export" and isinstance(resultado, tuple) and len(resultado) == 2:
+        path, acao = resultado
+        modelo_msg = _MENSAGENS_EXPORT.get(acao, "provider '{PROVIDER_ID}' processado em {path}")
+        print(modelo_msg.format(path=path))
     return resultado

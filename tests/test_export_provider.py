@@ -36,8 +36,9 @@ class ExportProviderTests(unittest.TestCase):
 
     def test_cria_config_do_opencode_quando_nao_existe(self):
         self._nosso_config({"gemini-3.5-flash": ["sk-1"], "gpt-x": ["sk-2"]}, port=9000)
-        retornado = export_provider()
+        retornado, acao = export_provider()
         self.assertEqual(retornado, self._opencode_path)
+        self.assertEqual(acao, "criado")
         dados = json.loads(self._opencode_path.read_text(encoding="utf-8"))
         self.assertEqual(dados["$schema"], "https://opencode.ai/config.json")
         bloco = dados["provider"][PROVIDER_ID]
@@ -52,12 +53,21 @@ class ExportProviderTests(unittest.TestCase):
             },
         )
 
+    def test_adiciona_quando_config_existe_sem_nosso_provider(self):
+        self._nosso_config({"m": ["sk-a"]})
+        self._opencode_path.parent.mkdir(parents=True, exist_ok=True)
+        self._opencode_path.write_text(json.dumps({"provider": {"openai": {}}}), encoding="utf-8")
+        _, acao = export_provider()
+        self.assertEqual(acao, "adicionado")
+
     def test_e_idempotente_nao_duplica_provider(self):
         self._nosso_config({"m": ["sk-a"]})
-        export_provider()
+        _, acao1 = export_provider()
         antes = json.loads(self._opencode_path.read_text(encoding="utf-8"))
-        export_provider()
+        _, acao2 = export_provider()
         depois = json.loads(self._opencode_path.read_text(encoding="utf-8"))
+        self.assertEqual(acao1, "criado")
+        self.assertEqual(acao2, "inalterado")
         self.assertEqual(len(depois["provider"]), 1)
         self.assertEqual(antes["provider"][PROVIDER_ID], depois["provider"][PROVIDER_ID])
 
@@ -75,8 +85,9 @@ class ExportProviderTests(unittest.TestCase):
         self._opencode_path.parent.mkdir(parents=True, exist_ok=True)
         self._opencode_path.write_text(json.dumps(existente), encoding="utf-8")
 
-        export_provider()
+        _, acao = export_provider()
 
+        self.assertEqual(acao, "atualizado")
         dados = json.loads(self._opencode_path.read_text(encoding="utf-8"))
         self.assertEqual(dados["model"], "openai/gpt-x")
         self.assertEqual(dados["mcp"], {"srv": {"enabled": False}})
@@ -89,7 +100,8 @@ class ExportProviderTests(unittest.TestCase):
         self._nosso_config({"velho": ["sk-1"]}, port=8792)
         export_provider()
         self._nosso_config({"novo": ["sk-2"]}, port=9500)
-        export_provider()
+        _, acao = export_provider()
+        self.assertEqual(acao, "atualizado")
         bloco = json.loads(self._opencode_path.read_text(encoding="utf-8"))["provider"][PROVIDER_ID]
         self.assertEqual(bloco["options"]["baseURL"], "http://127.0.0.1:9500/v1")
         self.assertEqual(list(bloco["models"]), ["novo"])

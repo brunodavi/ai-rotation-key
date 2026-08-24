@@ -11,13 +11,24 @@ OPENCODE_SCHEMA = "https://opencode.ai/config.json"
 def export_provider():
     config = load_config()
     opencode_path = Path(os.environ["HOME"]) / ".config" / "opencode" / "config.json"
+    existia = opencode_path.exists()
     atual = _ler_existente(opencode_path)
-    atual.setdefault("$schema", OPENCODE_SCHEMA)
     providers = atual.setdefault("provider", {})
-    providers[PROVIDER_ID] = _bloco(config)
+    bloco = _bloco(config)
+    anterior = providers.get(PROVIDER_ID)
+    if not existia:
+        acao = "criado"
+    elif anterior is None:
+        acao = "adicionado"
+    elif anterior == bloco:
+        return opencode_path, "inalterado"
+    else:
+        acao = "atualizado"
+    providers[PROVIDER_ID] = bloco
+    atual.setdefault("$schema", OPENCODE_SCHEMA)
     opencode_path.parent.mkdir(parents=True, exist_ok=True)
     opencode_path.write_text(json.dumps(atual, indent=2) + "\n", encoding="utf-8")
-    return opencode_path
+    return opencode_path, acao
 
 
 def _ler_existente(path):

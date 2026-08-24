@@ -61,6 +61,22 @@ class CliOutputTests(unittest.TestCase):
             self.assertIn("já existe", saida.getvalue())
             self.assertIn("sem alterar", saida.getvalue())
 
+    def test_export_imprime_acao_realizada_e_caminho(self):
+        caminho = pathlib.Path("/tmp/fake") / "opencode.json"
+        for acao, trecho in (
+            ("criado", "criado"),
+            ("adicionado", "adicionado"),
+            ("atualizado", "atualizado"),
+            ("inalterado", "já estava configurado"),
+        ):
+            with self.subTest(acao=acao):
+                with mock.patch("src.cli.export_provider", return_value=(caminho, acao)):
+                    saida = io.StringIO()
+                    with contextlib.redirect_stdout(saida):
+                        main(["export"])
+                    self.assertIn(trecho, saida.getvalue())
+                    self.assertIn(str(caminho), saida.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()
