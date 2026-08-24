@@ -9,17 +9,18 @@ Ferramentas comuns de rotação/proxy de chaves quebram no Termux por exigirem R
 ## Instalação
 
 ```sh
-pip install git+https://github.com/brunodavi/ai-rotation-key.git
+pip install git+https://github.com/brunodavi/ai-rotation-key.git@v0.5.0
 ```
 
-Requisito: Python 3.14+
+Requisito: Python 3.14+. A branch padrão (`dev`) recebe trabalho em andamento — para uso estável, instale sempre fixando a **última tag** (toda tag passou por suíte verde e validação manual).
 
-Desenvolvimento (clone + editable):
+Desenvolvimento (clone + editable + hooks):
 
 ```sh
 git clone https://github.com/brunodavi/ai-rotation-key.git
 cd ai-rotation-key
 pip install -e .
+python scripts/install-git-hooks.py   # uma vez: suíte+segredos no commit, gate de versão no push de tags
 ```
 
 ## Uso
@@ -30,6 +31,9 @@ airkey init
 
 # Abre o config no $EDITOR (fallback: vi)
 airkey edit
+
+# Abre o config do opencode (~/.config/opencode/config.json)
+airkey edit --opencode
 
 # Sobe o servidor local (escuta apenas em 127.0.0.1)
 airkey start
@@ -72,10 +76,6 @@ O comando canônico é `ai-rotation-key`; `airkey` é o atalho — use o que pre
 
 Os modelos são expostos com namespace `<provider>/<modelo>` (ex.: `openrouter/gpt-4`, `opencode-zen/big-pickle`) para evitar confusão entre gateways; requests aceitam também o nome pelado quando ele só existe em um provider. O mesmo modelo em providers distintos é permitido — qualifique quando ambos atenderem.
 
-> `exclude-models` (formato antigo) não é mais aceito no config — migre os padrões para `filter-models` prefixando cada um com `!`.
-
-> v0.2.0: o formato antigo com `model-keys` foi removido — recrie o config com `airkey init`.
-
 ## Como funciona
 
 O proxy recebe chamadas OpenAI-compatíveis, escolhe a próxima chave do modelo pedido (round-robin) e repassa ao upstream. Em 429 ou erro de conexão ele tenta automaticamente a próxima chave; em 400/404 repassa direto sem gastar o pool. Assinaturas `thought_signature` de tool calls (exigidas pelo Gemini 3.x no turno seguinte) são guardadas e reinjetadas automaticamente — o cliente nunca vê campos extras.
@@ -88,15 +88,19 @@ Inspirado (e creditado) em [LiteLLM](https://github.com/BerriAI/litellm), [Hydra
 
 ## Desenvolvimento
 
+Branch padrão é a `dev` (trabalho em andamento); as **tags são as versões estáveis** — cada tag passou pela suíte completa e validação manual antes de ser publicada (o push de tag valida semver, consistência com o `pyproject.toml`, suíte e árvore limpa).
+
 Testes (unittest stdlib):
 
 ```sh
 python -m unittest discover -s tests -v
 ```
 
+Commits seguem `<tipo>(<escopo>): <FASE> - <mensagem>`, com fase TDD por tipo (test→RED, feat→GREEN, refactor→REFACTOR, fix→RED|GREEN; docs/chore sem fase) — o hook de commit-msg valida.
+
 ## Segurança
 
-O servidor escuta **apenas em `127.0.0.1`** — suas chaves e requests não ficam acessíveis de outros dispositivos da rede. As chaves ficam somente no seu config local; o projeto não as envia para nenhum lugar além do upstream configurado.
+O servidor escuta **apenas em `127.0.0.1`** — suas chaves e requests não ficam acessíveis de outros dispositivos da rede. As chaves ficam somente no seu config local; o projeto não as envia para nenhum lugar além do upstream configurado. O hook de pre-commit escaneia tudo que vai ser commitado em busca de padrões de chave de API e bloqueia o commit se encontrar algo.
 
 Gemini 3.x exige que a `thought_signature` dos tool calls volte no histórico do turno seguinte: o proxy guarda essas assinaturas em cache e reinjeta automaticamente — o cliente nunca vê campos extras.
 

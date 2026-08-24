@@ -17,13 +17,14 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
   - Parsing com argparse
   - `edit` usa `$EDITOR` com fallback `vi` (subprocess.run); flag `--opencode` abre o config do opencode
   - `export` adiciona este servidor como provider em ~/.config/opencode/config.json: lê o JSON existente, checa se o provider já existe antes de adicionar (idempotente, não duplica), preserva os demais providers e escreve de volta com módulo json
-    - Validado ao vivo (tmp/spikes/opencode-custom-provider.md): config.json É carregado pelo opencode; usar id próprio + npm "@ai-sdk/openai-compatible" + baseURL http://127.0.0.1:<porta>/v1; NUNCA sobrescrever providers embutidos (openai usa /v1/responses e hijacka o small_model interno); models saem das chaves do model-keys
+    - Validado ao vivo (tmp/spikes/opencode-custom-provider.md): config.json É carregado pelo opencode; usar id próprio + npm "@ai-sdk/openai-compatible" + baseURL http://127.0.0.1:<porta>/v1; NUNCA sobrescrever providers embutidos (openai usa /v1/responses e hijacka o small_model interno); models do export usam key namespaced `<provider>/<modelo>` e name curto em 2 níveis
 - Config: ~/.config/ai-rotation-key/config.json (ler/escrever com módulo json)
   - Formato atual: {"port": 8792, "providers": {"<nome>": {"base-url": "...", "api-keys": [...], "filter-models": [...], "models": [...]}}}
   - base-url opcional para providers com default no registro (gemini, openrouter, opencode-zen — ver src/providers/)
   - Namespacing: /v1/models e export expõem `<provider>/<modelo>`; request aceita prefixado ou pelado (pelado ambíguo entre providers → 400 com opções); prefixo removido antes do upstream; config continua com nomes pelados; mesmo modelo em providers distintos é permitido
   - Rotação por provider (modelos do mesmo provider dividem o ciclo); formato antigo model-keys rejeitado
 - HTTP 100% stdlib: servidor com http.server.ThreadingHTTPServer, chamadas upstream com urllib.request
+- Toda chamada upstream (forward/stream/fetch_models) envia `User-Agent: ai-rotation-key/<versão>` (`src/utils/user_agent.py`) — o gateway do OpenCode Zen rejeita User-Agent Python atrás do Cloudflare (erro 1010)
 - Rotação: round-robin simples por modelo — cada request usa a próxima chave da lista do modelo pedido, ciclicamente
 - Rotação NUNCA acontece em 400/404 (chave válida/request ruim/modelo morto) — só em 429 e erro de conexão
 - thought_signature de tool calls (Gemini 3.x): cache `id → assinatura` e reinjeção no histórico do turno seguinte (`src/utils/signature_cache.py`) — a API exige o round-trip e o cliente não deve ver extra_content
@@ -34,8 +35,8 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
 - tests/, tmp/ (ignorado pelo git)
 
 # Convenções
-- Conventional commits
-- README.md simples: instalação direta via `pip install git+https://github.com/brunodavi/ai-rotation-key.git`, comandos e motivação (erro no Termux por causa do Rust)
+- Commits seguem o padrão com fase TDD definido em # Workflow TDD & Git (validado pelo hook commit-msg)
+- README.md enxuto: instalação fixando a última tag, comandos e motivação (erro no Termux por causa do Rust); sem notas de migração de versões antigas
 
 # Workflow TDD & Git
 - TDD à risca: validação do comportamento real → RED (erro na asserção, stub mínimo necessário) → GREEN → REFACTOR
@@ -59,7 +60,7 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
     - ./tmp/spikes: validações encontradas em .md
     - ./tmp/apis/<nome>: pastas com request/response
     - ./tmp/scripts: validar lib nativa do Python ou debug
-    - ./tmp/repos: clones shallow de repositórios de referência, só para leitura (HydraGemini, LiteLLM)
+    - ./tmp/repos: clones shallow de repositórios de referência, só para leitura (HydraGemini, LiteLLM, opencode)
 - Sempre validar o comportamento real antes de assumir
 - Sempre seguir TDD à risca: validação do comportamento real → RED (erro na asserção, stub mínimo necessário) → GREEN → REFACTOR
 - Projeto também usado como harness para validar comportamento do opencode
