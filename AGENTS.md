@@ -22,10 +22,11 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
   - Formato atual: {"port": 8792, "providers": {"<nome>": {"base-url": "...", "api-keys": [...], "filter-models": [...], "models": [...]}}}
   - base-url opcional para providers com default no registro (gemini, openrouter, opencode-zen — ver src/providers/)
   - Namespacing: /v1/models e export expõem `<provider>/<modelo>`; request aceita prefixado ou pelado (pelado ambíguo entre providers → 400 com opções); prefixo removido antes do upstream; config continua com nomes pelados; mesmo modelo em providers distintos é permitido
-  - Mapeamento opcional para gateway quase-compatível (campos flat no provider): `rota-models`
+  - Mapeamento opcional para gateway quase-compatível (campos flat no provider): `models-endpoint`
     (default /models), `path-models` (dot-path null-safe próprio — src/utils/dot_path.py),
-    `sufixo-chat` e `auth-header` (template com `{api-key}`); ausentes = OpenAI-compatível puro;
-    path sem resultado → FetchModelsError no sync-models
+    `chat-endpoint` e `auth-header` (template com `{api-key}`); ausentes = OpenAI-compatível puro;
+    path sem resultado → FetchModelsError no sync-models; nomes antigos (rota-models/sufixo-chat)
+    são rejeitados na carga apontando os novos
   - Rotação por provider (modelos do mesmo provider dividem o ciclo); formato antigo model-keys rejeitado
 - HTTP 100% stdlib: servidor com http.server.ThreadingHTTPServer, chamadas upstream com urllib.request
 - Toda chamada upstream (forward/stream/fetch_models) envia `User-Agent: ai-rotation-key/<versão>` (`src/utils/user_agent.py`) — o gateway do OpenCode Zen rejeita User-Agent Python atrás do Cloudflare (erro 1010)
@@ -61,6 +62,9 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
 - NADA fora do projeto (Termux não tem /tmp): fixtures de HOME em `tmp/.scratch/`, nunca tempfile do sistema; servidor real deriva porta com +1 e loga a efetiva
 
 # Agent
+- Toda sessão de implementação mantém a lista de tarefas interna da ferramenta do opencode
+  (`todowrite`) com as etapas do ciclo — é assim que você se organiza e o dono acompanha em qual
+  etapa está em tempo real; ela NÃO substitui `tmp/todo-list/` (fila de projeto, só do planner)
 - Usar ./tmp para guardar informações e validações sobre APIs/documentações e seus contratos reais
     - ./tmp/spikes: validações encontradas em .md
     - ./tmp/apis/<nome>: pastas com request/response

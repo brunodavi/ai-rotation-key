@@ -84,18 +84,18 @@ Providers cujo `/models` ou chat fogem do padrão OpenAI aceitam campos opcionai
 "meu-gateway": {
   "base-url": "https://gateway.exemplo/api",
   "api-keys": ["sua-chave"],
-  "rota-models": "/catalogo",
+  "models-endpoint": "/catalogo",
   "path-models": "result.items[].modelId",
-  "sufixo-chat": "/v2/chat",
+  "chat-endpoint": "/v2/chat",
   "auth-header": "X-Key: {api-key}"
 }
 ```
 
 | Campo | O que faz | Default |
 |---|---|---|
-| `rota-models` | rota de descoberta anexada ao `base-url` | `/models` |
+| `models-endpoint` | rota de descoberta anexada ao `base-url` | `/models` |
 | `path-models` | caminho dot-path dos ids na resposta (null-safe: item sem o campo é pulado) | `data[].id` |
-| `sufixo-chat` | sufixo anexado ao `base-url` no POST de chat | `/chat/completions` |
+| `chat-endpoint` | rota anexada ao `base-url` no POST de chat | `/chat/completions` |
 | `auth-header` | template do header de autenticação (`{api-key}` vira a chave do ciclo atual) | `Bearer {api-key}` |
 
 Se `path-models` não encontrar nada, o `sync-models` reporta falha daquele provider com o motivo — nada é adicionado.
