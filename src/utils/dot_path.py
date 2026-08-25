@@ -11,7 +11,7 @@ nunca exceção. Apenas caminho vazio levanta ValueError.
 
 import re
 
-_TOKEN = re.compile(r"\.([A-Za-z_][\w-]*)|\[(\d*)\]")
+_TOKEN = re.compile(r"\.([A-Za-z_][\w-]*)|\[(-?\d*)\]")
 
 
 def _tokens(caminho):
