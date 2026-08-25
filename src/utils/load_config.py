@@ -106,7 +106,7 @@ def _validar_providers(dados):
     return providers
 
 
-_CAMPOS_MAPEAMENTO = ("path-models", "sufixo-chat", "auth-header")
+_CAMPOS_MAPEAMENTO = ("rota-models", "path-models", "sufixo-chat", "auth-header")
 
 
 def _validar_mapeamento(nome, cfg):

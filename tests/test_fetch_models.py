@@ -75,6 +75,17 @@ class FetchModelsTests(unittest.TestCase):
         auth = self.upstream.requests[-1]["headers"]["Authorization"]
         self.assertEqual(auth, "Bearer sk-chave")
 
+    def test_rota_models_customizada(self):
+        self.upstream.register(
+            "GET", "/v1/catalogo",
+            body={"result": {"items": [{"modelId": "m-catalogo"}]}},
+        )
+        modelos = fetch_models(
+            self.upstream.url("/v1"), "sk-chave",
+            rota_modelos="/catalogo", path_modelos="result.items[].modelId",
+        )
+        self.assertEqual(modelos, ["m-catalogo"])
+
     def test_base_url_com_barra_final_nao_duplica_barra(self):
         self._registrar(payload=_payload("m"))
         modelos = fetch_models(self.upstream.url("/v1") + "/", "sk")

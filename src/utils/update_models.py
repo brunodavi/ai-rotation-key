@@ -45,6 +45,7 @@ def sync_provider(nome, cfg):
     descobertos = fetch_models(
         cfg["base-url"],
         cfg["api-keys"][0],
+        rota_modelos=cfg.get("rota-models", "/models"),
         path_modelos=cfg.get("path-models"),
         auth_header=cfg.get("auth-header"),
     )

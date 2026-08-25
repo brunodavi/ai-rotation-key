@@ -76,6 +76,30 @@ O comando canônico é `ai-rotation-key`; `airkey` é o atalho — use o que pre
 
 Os modelos são expostos com namespace `<provider>/<modelo>` (ex.: `openrouter/gpt-4`, `opencode-zen/big-pickle`) para evitar confusão entre gateways; requests aceitam também o nome pelado quando ele só existe em um provider. O mesmo modelo em providers distintos é permitido — qualifique quando ambos atenderem.
 
+### Gateway quase-compatível (mapeamento customizado)
+
+Providers cujo `/models` ou chat fogem do padrão OpenAI aceitam campos opcionais de mapeamento — todos ausentes = comportamento padrão:
+
+```json
+"meu-gateway": {
+  "base-url": "https://gateway.exemplo/api",
+  "api-keys": ["sua-chave"],
+  "rota-models": "/catalogo",
+  "path-models": "result.items[].modelId",
+  "sufixo-chat": "/v2/chat",
+  "auth-header": "X-Key: {api-key}"
+}
+```
+
+| Campo | O que faz | Default |
+|---|---|---|
+| `rota-models` | rota de descoberta anexada ao `base-url` | `/models` |
+| `path-models` | caminho dot-path dos ids na resposta (null-safe: item sem o campo é pulado) | `data[].id` |
+| `sufixo-chat` | sufixo anexado ao `base-url` no POST de chat | `/chat/completions` |
+| `auth-header` | template do header de autenticação (`{api-key}` vira a chave do ciclo atual) | `Bearer {api-key}` |
+
+Se `path-models` não encontrar nada, o `sync-models` reporta falha daquele provider com o motivo — nada é adicionado.
+
 ## Como funciona
 
 O proxy recebe chamadas OpenAI-compatíveis, escolhe a próxima chave do modelo pedido (round-robin) e repassa ao upstream. Em 429 ou erro de conexão ele tenta automaticamente a próxima chave; em 400/404 repassa direto sem gastar o pool. Assinaturas `thought_signature` de tool calls (exigidas pelo Gemini 3.x no turno seguinte) são guardadas e reinjetadas automaticamente — o cliente nunca vê campos extras.

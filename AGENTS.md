@@ -22,6 +22,10 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
   - Formato atual: {"port": 8792, "providers": {"<nome>": {"base-url": "...", "api-keys": [...], "filter-models": [...], "models": [...]}}}
   - base-url opcional para providers com default no registro (gemini, openrouter, opencode-zen — ver src/providers/)
   - Namespacing: /v1/models e export expõem `<provider>/<modelo>`; request aceita prefixado ou pelado (pelado ambíguo entre providers → 400 com opções); prefixo removido antes do upstream; config continua com nomes pelados; mesmo modelo em providers distintos é permitido
+  - Mapeamento opcional para gateway quase-compatível (campos flat no provider): `rota-models`
+    (default /models), `path-models` (dot-path null-safe próprio — src/utils/dot_path.py),
+    `sufixo-chat` e `auth-header` (template com `{api-key}`); ausentes = OpenAI-compatível puro;
+    path sem resultado → FetchModelsError no sync-models
   - Rotação por provider (modelos do mesmo provider dividem o ciclo); formato antigo model-keys rejeitado
 - HTTP 100% stdlib: servidor com http.server.ThreadingHTTPServer, chamadas upstream com urllib.request
 - Toda chamada upstream (forward/stream/fetch_models) envia `User-Agent: ai-rotation-key/<versão>` (`src/utils/user_agent.py`) — o gateway do OpenCode Zen rejeita User-Agent Python atrás do Cloudflare (erro 1010)

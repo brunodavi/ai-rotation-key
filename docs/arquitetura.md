@@ -43,7 +43,8 @@ flowchart TD
 | `sanitize_request` / `sanitize_response` | contratos de entrada/saída e linhas SSE |
 | `signature_cache` | `tool_call.id → thought_signature`; coleta na resposta, injeção no histórico |
 | `forward_request` | política de rotação contra o upstream (`urllib`) |
-| `fetch_models` | GET `{base-url}/models` com Bearer da primeira chave; parseia ids (tira prefixo `models/`) |
+| `dot_path` | resolver null-safe próprio (stdlib) para caminhos como `data[].id`, `items[0].modelId` — nada encontrado devolve lista vazia |
+| `fetch_models` | GET `{base-url}/models` com auth da primeira chave (default `Bearer {api-key}`; template configurável via `auth-header`); parseia ids por `data[].id` ou pelo `path-models` customizado (tira prefixo `models/`) |
 | `update_models` | sincroniza o config: adiciona faltantes respeitando `filter-models` (globs com `!` de exclusão), relatório por provider |
 | `start_server` | `ThreadingHTTPServer`, rotas `/v1/*`, escuta apenas em `127.0.0.1` |
 | `export_provider` | registra o provider no opencode (idempotente, preserva os demais) |
