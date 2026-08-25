@@ -1,10 +1,11 @@
+import io
 import json
 import threading
 import unittest
 import urllib.error
 import urllib.request
 
-from src.utils.start_server import build_server
+from src.utils.start_server import ProxyHandler, build_server
 from tests.mock_server import MockServer
 
 
@@ -237,6 +238,38 @@ class HttpServerTests(unittest.TestCase):
         self.assertEqual(status, 200)
         auth_stream = self.upstream_b.requests[-1]["headers"]["Authorization"]
         self.assertIn("X-Key:", auth_stream)
+
+    def test_stream_com_cliente_desconectado_nao_propaga_erro(self):
+        """opencode pode abortar o stream a qualquer momento — handler engole e segue."""
+        chunks = [b'data: {"choices":[{"delta":{"content":"x"}}]}\n\n', b"data: [DONE]\n\n"]
+        self.upstream_a.register_stream("POST", "/v1/chat/completions", chunks)
+
+        class ClienteFugiu(ProxyHandler):
+            def __init__(self):
+                pass
+
+            def send_response(self, *args):
+                pass
+
+            def send_header(self, chave, valor):
+                pass
+
+            def end_headers(self):
+                raise ConnectionResetError(104, "Connection reset by peer")
+
+            def log_message(self, *args):
+                pass
+
+        handler = ClienteFugiu()
+        handler.server = self.server
+        handler.command = "POST"
+        handler.request_version = "HTTP/1.1"
+        handler.client_address = ("127.0.0.1", 0)
+        handler.wfile = io.BytesIO()
+
+        handler._repassar_stream(
+            "gemini", b"{}", self.upstream_a.url("/v1/chat/completions")
+        )
 
     def test_get_raiz_responde_saude(self):
         with urllib.request.urlopen(self.base + "/", timeout=10) as res:
