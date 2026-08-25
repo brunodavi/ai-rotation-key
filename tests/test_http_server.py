@@ -201,6 +201,43 @@ class HttpServerTests(unittest.TestCase):
         self.assertIn("gemini/", texto)
         self.assertIn("outro/", texto)
 
+    def test_gateway_customizado_usa_sufixo_chat_e_template_auth(self):
+        self.providers["gw"] = {
+            "base-url": self.upstream_b.url("/gw"),
+            "api-keys": ["sk-gw1", "sk-gw2"],
+            "models": ["m-custom"],
+            "sufixo-chat": "/v2/chat",
+            "auth-header": "X-Key: {api-key}",
+        }
+        self.server.shutdown()
+        self.server.server_close()
+        self.server_thread.join(timeout=5)
+        self.server = build_server(providers=self.providers, port=0)
+        self.server_thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.server_thread.start()
+
+        self.upstream_b.register("POST", "/gw/v2/chat", status=200, body={"de": "custom"})
+        status, _ = self._post(
+            "/v1/chat/completions",
+            {"model": "gw/m-custom", "messages": [{"role": "user", "content": "oi"}]},
+        )
+        self.assertEqual(status, 200)
+        enviado = json.loads(self.upstream_b.requests[-1]["body"])
+        self.assertEqual(enviado["model"], "m-custom")
+        auths = [r["headers"]["Authorization"] for r in self.upstream_b.requests]
+        self.assertEqual(auths[0], "X-Key: sk-gw1")
+
+        chunks = [b'data: {"choices":[{"delta":{"content":"1"}}]}\n\n', b"data: [DONE]\n\n"]
+        self.upstream_b.register_stream("POST", "/gw/v2/chat", chunks)
+        status, recebido = self._post(
+            "/v1/chat/completions",
+            {"model": "gw/m-custom", "messages": [{"role": "user", "content": "oi"}],
+             "stream": True},
+        )
+        self.assertEqual(status, 200)
+        auth_stream = self.upstream_b.requests[-1]["headers"]["Authorization"]
+        self.assertIn("X-Key:", auth_stream)
+
     def test_get_raiz_responde_saude(self):
         with urllib.request.urlopen(self.base + "/", timeout=10) as res:
             self.assertEqual(res.status, 200)
