@@ -116,18 +116,22 @@ class ProxyHandler(BaseHTTPRequestHandler):
                 continue
         if res is None:
             return
-        self.send_response(200)
-        for header, valor in res.headers.items():
-            if header.lower() not in _HEADERS_HOP_BY_HOP:
-                self.send_header(header, valor)
-        self.send_header("Connection", "close")
-        self.end_headers()
-        self.close_connection = True
-        coletor = self.server.signature_cache.collect
-        for linha in res:
-            self.wfile.write(sanitize_sse_line(linha, collector=coletor))
-            self.wfile.flush()
-        res.close()
+        try:
+            self.send_response(200)
+            for header, valor in res.headers.items():
+                if header.lower() not in _HEADERS_HOP_BY_HOP:
+                    self.send_header(header, valor)
+            self.send_header("Connection", "close")
+            self.end_headers()
+            self.close_connection = True
+            coletor = self.server.signature_cache.collect
+            for linha in res:
+                self.wfile.write(sanitize_sse_line(linha, collector=coletor))
+                self.wfile.flush()
+        except (ConnectionResetError, BrokenPipeError, OSError):
+            return
+        finally:
+            res.close()
 
     def _enviar_json(self, status, obj, raw=None):
         corpo = raw if raw is not None else json.dumps(obj).encode("utf-8")
