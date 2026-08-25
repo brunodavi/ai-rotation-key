@@ -175,15 +175,17 @@ class LoadConfigTests(unittest.TestCase):
             "base-url": "https://gw.exemplo/api",
             "api-keys": ["sk-a"],
             "models": ["m1"],
+            "models-endpoint": "/catalogo",
             "path-models": "result.items[].modelId",
-            "sufixo-chat": "/v2/chat",
+            "chat-endpoint": "/v2/chat",
             "auth-header": "X-Key: {api-key}",
         }
         self._escrever({"providers": {"meu-gateway": provider}})
         dados = load_config()
         mapeado = dados["providers"]["meu-gateway"]
+        self.assertEqual(mapeado["models-endpoint"], "/catalogo")
         self.assertEqual(mapeado["path-models"], "result.items[].modelId")
-        self.assertEqual(mapeado["sufixo-chat"], "/v2/chat")
+        self.assertEqual(mapeado["chat-endpoint"], "/v2/chat")
         self.assertEqual(mapeado["auth-header"], "X-Key: {api-key}")
 
     def test_mapeamento_sem_campos_nao_aparece_no_dict(self):
@@ -192,15 +194,17 @@ class LoadConfigTests(unittest.TestCase):
         })
         dados = load_config()
         gemini = dados["providers"]["gemini"]
-        for campo in ("path-models", "sufixo-chat", "auth-header"):
+        for campo in ("models-endpoint", "path-models", "chat-endpoint", "auth-header"):
             self.assertNotIn(campo, gemini)
 
     def test_mapeamento_invalido_levanta_value_error(self):
         casos = [
+            {"models-endpoint": ""},
+            {"models-endpoint": 42},
             {"path-models": ""},
             {"path-models": 42},
-            {"sufixo-chat": "   "},
-            {"sufixo-chat": []},
+            {"chat-endpoint": "   "},
+            {"chat-endpoint": []},
             {"auth-header": "sem placeholder"},
             {"auth-header": "{chave}"},
         ]
@@ -216,6 +220,22 @@ class LoadConfigTests(unittest.TestCase):
                 with self.assertRaises(ValueError) as ctx:
                     load_config()
                 self.assertIn("mapeamento", str(ctx.exception))
+
+    def test_nomes_antigos_do_mapeamento_rejeitados(self):
+        for antigo in ("rota-models", "sufixo-chat"):
+            with self.subTest(antigo=antigo):
+                provider = {
+                    "base-url": "https://gw.exemplo/api",
+                    "api-keys": ["sk-a"],
+                    "models": ["m"],
+                    antigo: "/qualquer",
+                }
+                self._escrever({"providers": {"meu-gateway": provider}})
+                with self.assertRaises(ValueError) as ctx:
+                    load_config()
+                mensagem = str(ctx.exception)
+                self.assertIn(antigo, mensagem)
+                self.assertIn("endpoint", mensagem)
 
     def test_formato_antigo_model_keys_rejeitado_com_orientacao(self):
         self._escrever({"model-keys": {"gemini-3.5-flash": ["sk-velha"]}})
