@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ai-rotation-key"
-version = "0.6.0"
+version = "0.7.0"
 description = "Roteador round-robin de chaves de APIs de IA, leve o bastante para rodar no Termux"
 readme = "README.md"
 requires-python = ">=3.14"
