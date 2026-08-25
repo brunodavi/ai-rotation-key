@@ -5,12 +5,15 @@ from urllib import error, request
 from src.utils.user_agent import USER_AGENT
 
 DEFAULT_UPSTREAM = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+AUTH_PADRAO = "Bearer {api-key}"
 
 _ROTACIONAVEIS = (error.URLError, OSError, http.client.HTTPException)
 
 
-def forward_request(round_robin, model, payload, url=DEFAULT_UPSTREAM, timeout=120):
+def forward_request(round_robin, model, payload, url=DEFAULT_UPSTREAM, timeout=120,
+                    auth_header=None):
     status, body, headers = _falha_conexao("upstream não alcançado")
+    template = auth_header or AUTH_PADRAO
     for _ in range(round_robin.count(model)):
         chave = round_robin.next(model)
         req = request.Request(
@@ -18,7 +21,7 @@ def forward_request(round_robin, model, payload, url=DEFAULT_UPSTREAM, timeout=1
             data=payload,
             headers={
                 "Content-Type": "application/json",
-                "Authorization": f"Bearer {chave}",
+                "Authorization": template.format(**{"api-key": chave}),
                 "User-Agent": USER_AGENT,
             },
             method="POST",

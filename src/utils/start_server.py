@@ -4,7 +4,7 @@ from urllib import error, request
 
 from src.utils.config_paths import DEFAULT_PORT
 from src.utils.find_free_port import find_free_port
-from src.utils.forward_request import forward_request
+from src.utils.forward_request import AUTH_PADRAO, forward_request
 from src.utils.load_config import load_config
 from src.utils.round_robin import RoundRobin
 from src.utils.sanitize_request import sanitize_request
@@ -66,12 +66,16 @@ class ProxyHandler(BaseHTTPRequestHandler):
         dados["model"] = modelo_bare
         self.server.signature_cache.inject(dados.get("messages") or [])
         payload = json.dumps(dados).encode("utf-8")
-        url = self.server.providers[provider]["base-url"].rstrip("/") + _SUFIXO_CHAT
+        cfg = self.server.providers[provider]
+        url = cfg["base-url"].rstrip("/") + cfg.get("sufixo-chat", _SUFIXO_CHAT)
 
         if dados.get("stream"):
             self._repassar_stream(provider, payload, url)
             return
-        status, corpo, _ = forward_request(self.server.round_robin, provider, payload, url=url)
+        status, corpo, _ = forward_request(
+            self.server.round_robin, provider, payload, url=url,
+            auth_header=cfg.get("auth-header"),
+        )
         try:
             resposta = json.loads(corpo)
             self.server.signature_cache.collect(resposta)
@@ -82,6 +86,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
 
     def _repassar_stream(self, provider, payload, url):
         rr = self.server.round_robin
+        template = self.server.providers[provider].get("auth-header") or AUTH_PADRAO
         res = None
         for tentativa in range(rr.count(provider)):
             chave = rr.next(provider)
@@ -90,7 +95,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
                 data=payload,
                 headers={
                     "Content-Type": "application/json",
-                    "Authorization": f"Bearer {chave}",
+                    "Authorization": template.format(**{"api-key": chave}),
                     "User-Agent": USER_AGENT,
                 },
                 method="POST",
