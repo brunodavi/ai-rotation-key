@@ -82,7 +82,7 @@ class FetchModelsTests(unittest.TestCase):
         )
         modelos = fetch_models(
             self.upstream.url("/v1"), "sk-chave",
-            rota_modelos="/catalogo", path_modelos="result.items[].modelId",
+            models_endpoint="/catalogo", path_modelos="result.items[].modelId",
         )
         self.assertEqual(modelos, ["m-catalogo"])
 

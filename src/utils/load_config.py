@@ -106,11 +106,19 @@ def _validar_providers(dados):
     return providers
 
 
-_CAMPOS_MAPEAMENTO = ("rota-models", "path-models", "sufixo-chat", "auth-header")
+_CAMPOS_MAPEAMENTO = ("models-endpoint", "path-models", "chat-endpoint", "auth-header")
+_NOMES_ANTIGOS = {"rota-models": "models-endpoint", "sufixo-chat": "chat-endpoint"}
 
 
 def _validar_mapeamento(nome, cfg):
-    """Campos opcionais de gateway quase-compatível: path-models, sufixo-chat, auth-header."""
+    """Campos opcionais de gateway quase-compatível: models-endpoint, path-models,
+    chat-endpoint, auth-header."""
+    for antigo, novo in _NOMES_ANTIGOS.items():
+        if antigo in cfg:
+            raise ValueError(
+                f"mapeamento inválido no provider '{nome}': '{antigo}' não é reconhecido "
+                f"— use '{novo}'"
+            )
     mapeamento = {}
     for campo in _CAMPOS_MAPEAMENTO:
         valor = cfg.get(campo)

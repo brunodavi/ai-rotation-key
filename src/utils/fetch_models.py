@@ -11,9 +11,9 @@ class FetchModelsError(Exception):
         self.status = status
 
 
-def fetch_models(base_url, api_key, timeout=30, rota_modelos="/models",
+def fetch_models(base_url, api_key, timeout=30, models_endpoint="/models",
                  path_modelos=None, auth_header=None):
-    url = base_url.rstrip("/") + rota_modelos
+    url = base_url.rstrip("/") + models_endpoint
     template = auth_header or "Bearer {api-key}"
     req = request.Request(
         url,

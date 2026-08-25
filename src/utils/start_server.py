@@ -67,7 +67,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
         self.server.signature_cache.inject(dados.get("messages") or [])
         payload = json.dumps(dados).encode("utf-8")
         cfg = self.server.providers[provider]
-        url = cfg["base-url"].rstrip("/") + cfg.get("sufixo-chat", _SUFIXO_CHAT)
+        url = cfg["base-url"].rstrip("/") + cfg.get("chat-endpoint", _SUFIXO_CHAT)
 
         if dados.get("stream"):
             self._repassar_stream(provider, payload, url)

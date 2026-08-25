@@ -207,7 +207,7 @@ class HttpServerTests(unittest.TestCase):
             "base-url": self.upstream_b.url("/gw"),
             "api-keys": ["sk-gw1", "sk-gw2"],
             "models": ["m-custom"],
-            "sufixo-chat": "/v2/chat",
+            "chat-endpoint": "/v2/chat",
             "auth-header": "X-Key: {api-key}",
         }
         self.server.shutdown()
