@@ -95,10 +95,36 @@ def _validar_providers(dados):
                 f"provider '{nome}' é desconhecido e não tem 'base-url' — informe uma, "
                 f"ex.: \"base-url\": \"https://api.exemplo.com/v1\""
             )
+        mapeamento = _validar_mapeamento(nome, cfg)
         providers[nome] = {
             "base-url": base_url,
             "api-keys": api_keys,
             "filter-models": filtros,
             "models": modelos,
+            **mapeamento,
         }
     return providers
+
+
+_CAMPOS_MAPEAMENTO = ("path-models", "sufixo-chat", "auth-header")
+
+
+def _validar_mapeamento(nome, cfg):
+    """Campos opcionais de gateway quase-compatível: path-models, sufixo-chat, auth-header."""
+    mapeamento = {}
+    for campo in _CAMPOS_MAPEAMENTO:
+        valor = cfg.get(campo)
+        if valor is None:
+            continue
+        if not isinstance(valor, str) or not valor.strip():
+            raise ValueError(
+                f"mapeamento inválido no provider '{nome}': '{campo}' deve ser string não-vazia"
+            )
+        mapeamento[campo] = valor.strip()
+    auth_header = mapeamento.get("auth-header")
+    if auth_header is not None and "{api-key}" not in auth_header:
+        raise ValueError(
+            f"mapeamento inválido no provider '{nome}': 'auth-header' deve conter "
+            f"'{{api-key}}' (ex.: 'Bearer {{api-key}}')"
+        )
+    return mapeamento
