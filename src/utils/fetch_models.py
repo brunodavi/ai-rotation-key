@@ -1,6 +1,7 @@
 import json
 from urllib import error, request
 
+from src.utils.dot_path import resolver
 from src.utils.user_agent import USER_AGENT
 
 
@@ -10,12 +11,13 @@ class FetchModelsError(Exception):
         self.status = status
 
 
-def fetch_models(base_url, api_key, timeout=30):
+def fetch_models(base_url, api_key, timeout=30, path_modelos=None, auth_header=None):
     url = base_url.rstrip("/") + "/models"
+    template = auth_header or "Bearer {api-key}"
     req = request.Request(
         url,
         headers={
-            "Authorization": f"Bearer {api_key}",
+            "Authorization": template.format(**{"api-key": api_key}),
             "Accept": "application/json",
             "User-Agent": USER_AGENT,
         },
@@ -33,10 +35,23 @@ def fetch_models(base_url, api_key, timeout=30):
         raise FetchModelsError(f"conexão falhou: {exc}") from None
     try:
         dados = json.loads(bruto.decode("utf-8"))
-        entradas = dados["data"]
-    except (json.JSONDecodeError, KeyError, TypeError) as exc:
+    except (json.JSONDecodeError, TypeError) as exc:
         raise FetchModelsError(f"resposta de /models inesperada: {exc}") from None
-    return [_normalizar_id(item["id"]) for item in entradas if isinstance(item, dict) and item.get("id")]
+
+    if path_modelos is None:
+        try:
+            entradas = dados["data"]
+            ids = [item["id"] for item in entradas if isinstance(item, dict) and item.get("id")]
+        except (KeyError, TypeError) as exc:
+            raise FetchModelsError(f"resposta de /models inesperada: {exc}") from None
+    else:
+        ids = resolver(dados, path_modelos)
+        if not ids or not all(isinstance(i, str) and i for i in ids):
+            raise FetchModelsError(
+                f"path-models '{path_modelos}' não encontrou ids na resposta — "
+                f"confira o caminho contra a resposta real do gateway"
+            )
+    return [_normalizar_id(i) for i in ids]
 
 
 def _normalizar_id(model_id):

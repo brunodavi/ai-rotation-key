@@ -42,7 +42,12 @@ def sync_models(path=None, apenas=None):
 
 
 def sync_provider(nome, cfg):
-    descobertos = fetch_models(cfg["base-url"], cfg["api-keys"][0])
+    descobertos = fetch_models(
+        cfg["base-url"],
+        cfg["api-keys"][0],
+        path_modelos=cfg.get("path-models"),
+        auth_header=cfg.get("auth-header"),
+    )
     aceitos = filtrar_modelos(descobertos, cfg.get("filter-models", []))
     atuais = set(cfg["models"])
     excluidos = len(descobertos) - len(aceitos)
