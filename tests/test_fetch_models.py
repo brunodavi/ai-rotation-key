@@ -50,6 +50,31 @@ class FetchModelsTests(unittest.TestCase):
         self.assertTrue(ua.startswith("ai-rotation-key/"), f"User-Agent inesperado: {ua!r}")
         self.assertNotIn("Python", ua)
 
+    def test_path_modelos_customizado_e_usado(self):
+        self._registrar(payload={"result": {"items": [{"modelId": "m1"}, {"modelId": "m2"}]}})
+        modelos = fetch_models(self.upstream.url("/v1"), "sk-chave",
+                               path_modelos="result.items[].modelId")
+        self.assertEqual(modelos, ["m1", "m2"])
+
+    def test_path_modelos_vazio_levanta_erro_tipado(self):
+        self._registrar(payload={"nada": "aqui"})
+        with self.assertRaises(FetchModelsError) as ctx:
+            fetch_models(self.upstream.url("/v1"), "sk-chave", path_modelos="data[].id")
+        self.assertIn("path-models", str(ctx.exception))
+        self.assertIn("data[].id", str(ctx.exception))
+
+    def test_auth_header_template_substitui_bearer(self):
+        self._registrar(payload=_payload("m"))
+        fetch_models(self.upstream.url("/v1"), "segredo123", auth_header="X-Key: {api-key}")
+        auth = self.upstream.requests[-1]["headers"]["Authorization"]
+        self.assertEqual(auth, "X-Key: segredo123")
+
+    def test_sem_mapeamento_mantem_comportamento_padrao(self):
+        self._registrar(payload=_payload("models/m"))
+        fetch_models(self.upstream.url("/v1"), "sk-chave")
+        auth = self.upstream.requests[-1]["headers"]["Authorization"]
+        self.assertEqual(auth, "Bearer sk-chave")
+
     def test_base_url_com_barra_final_nao_duplica_barra(self):
         self._registrar(payload=_payload("m"))
         modelos = fetch_models(self.upstream.url("/v1") + "/", "sk")
