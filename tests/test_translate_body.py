@@ -194,9 +194,9 @@ class TranslateSseLineTests(unittest.TestCase):
         self.assertIn(b'"content"', saida)
         self.assertTrue(saida.endswith(b"\n\n"))
 
-    def test_linha_sem_data_passa_inalterada(self):
-        linha = b": keep-alive\n\n"
-        self.assertEqual(translate_sse_line(linha, GEMINI_RESPONSE_MAP), linha)
+    def test_linha_sem_data_cai_no_modo_traducao(self):
+        self.assertIsNone(translate_sse_line(b": keep-alive\n\n", GEMINI_RESPONSE_MAP))
+        self.assertIsNone(translate_sse_line(b"\n", GEMINI_RESPONSE_MAP))
 
     def test_json_quebrado_passa_inalterado(self):
         linha = b"data: {quebrado\n\n"

@@ -13,6 +13,7 @@ values. The response builder always returns a valid OpenAI envelope, lowers
 `finish_reason` values and defaults each mapped message role to "assistant".
 """
 
+import json
 import re
 import time
 import uuid
@@ -59,6 +60,38 @@ def translate_response(payload, mapping):
         if isinstance(mensagem, dict):
             mensagem.setdefault("role", "assistant")
     return saida
+
+
+def translate_chunk(payload, mapping):
+    saida = translate_response(payload, mapping)
+    saida["object"] = "chat.completion.chunk"
+    for choice in saida["choices"]:
+        mensagem = choice.pop("message", None)
+        choice["delta"] = mensagem if isinstance(mensagem, dict) else {}
+        choice.setdefault("finish_reason", None)
+    return saida
+
+
+def translate_sse_line(line, mapping):
+    """Translate one native SSE line to OpenAI delta bytes.
+
+    Returns None for lines that must be dropped: non-data events (comments,
+    keep-alives, stray blank lines) and native [DONE] markers — the proxy
+    synthesizes its own terminator. Lines with invalid JSON pass through
+    unchanged.
+    """
+    texto = line.decode("utf-8", errors="ignore")
+    if not texto.startswith("data:"):
+        return None
+    bruto = texto.split("data:", 1)[1].strip()
+    if not bruto or "[DONE]" in bruto:
+        return None
+    try:
+        chunk = json.loads(bruto)
+    except json.JSONDecodeError:
+        return line
+    traduzido = translate_chunk(chunk, mapping)
+    return f"data: {json.dumps(traduzido)}\n\n".encode("utf-8")
 
 
 def _copiar_paralelo(saida, dados, destino, origem, role_map):

@@ -10,7 +10,11 @@ from src.utils.round_robin import RoundRobin
 from src.utils.sanitize_request import sanitize_request
 from src.utils.sanitize_response import sanitize_response_payload, sanitize_sse_line
 from src.utils.signature_cache import SignatureCache
-from src.utils.translate_body import translate_request, translate_response
+from src.utils.translate_body import (
+    translate_request,
+    translate_response,
+    translate_sse_line,
+)
 from src.utils.user_agent import USER_AGENT
 
 _CHAT_ROTAS = ("/chat/completions", "/v1/chat/completions")
@@ -137,9 +141,19 @@ class ProxyHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.close_connection = True
             coletor = self.server.signature_cache.collect
-            for linha in res:
-                self.wfile.write(sanitize_sse_line(linha, collector=coletor))
+            response_map = self.server.providers[provider].get("response-map")
+            if response_map:
+                for linha in res:
+                    traduzida = translate_sse_line(linha, response_map)
+                    if traduzida is not None:
+                        self.wfile.write(traduzida)
+                        self.wfile.flush()
+                self.wfile.write(b"data: [DONE]\n\n")
                 self.wfile.flush()
+            else:
+                for linha in res:
+                    self.wfile.write(sanitize_sse_line(linha, collector=coletor))
+                    self.wfile.flush()
         except (ConnectionResetError, BrokenPipeError, OSError):
             return
         finally:
