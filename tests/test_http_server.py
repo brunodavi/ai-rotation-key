@@ -333,6 +333,37 @@ class HttpServerTests(unittest.TestCase):
         self.assertEqual(chunks[1]["choices"][0]["delta"]["content"], ", 2")
         self.assertEqual(chunks[1]["choices"][0]["finish_reason"], "stop")
 
+    def test_erro_do_upstream_traduzido_passa_cru_sem_traducao(self):
+        self.providers["nat"] = {
+            "base-url": self.upstream_b.url("/native"),
+            "api-keys": ["sk-n1"],
+            "models": ["gemini-3.6-flash"],
+            "chat-endpoint": "/models/{model}:generateContent",
+            "auth-header": "x-goog-api-key: {api-key}",
+            "request-map": {
+                "contents[].role": "messages[].role",
+                "contents[].parts[0].text": "messages[].content",
+            },
+            "response-map": {
+                "choices[0].message.content": "candidates[0].content.parts[0].text",
+            },
+        }
+        self._reiniciar_servidor()
+        erro_native = {
+            "error": {"code": 400, "message": "Role 'assistant' is not supported.",
+                      "status": "INVALID_ARGUMENT"},
+        }
+        self.upstream_b.register(
+            "POST", "/native/models/gemini-3.6-flash:generateContent",
+            status=400, body=erro_native,
+        )
+        status, body = self._post(
+            "/v1/chat/completions",
+            {"model": "nat/gemini-3.6-flash", "messages": [{"role": "user", "content": "oi"}]},
+        )
+        self.assertEqual(status, 400)
+        self.assertEqual(json.loads(body), erro_native)
+
     def _reiniciar_servidor(self):
         self.server.shutdown()
         self.server.server_close()
