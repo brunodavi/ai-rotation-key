@@ -94,7 +94,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
             resposta = None
         if resposta is not None:
             response_map = cfg.get("response-map")
-            if response_map:
+            if response_map and status == 200:
                 resposta = translate_response(resposta, response_map)
             self.server.signature_cache.collect(resposta)
             corpo = json.dumps(sanitize_response_payload(resposta)).encode("utf-8")
