@@ -49,6 +49,44 @@ class PrePushTests(unittest.TestCase):
         self.assertRegex(commit_hook.ler_versao_pyproject(RAIZ), r"^\d+\.\d+\.\d+$")
 
 
+class ValidarPinReadmeTests(unittest.TestCase):
+    def setUp(self):
+        self.scratch = RAIZ / "tmp" / ".scratch" / "test_commit_hook_pin"
+        shutil.rmtree(self.scratch, ignore_errors=True)
+        self.scratch.mkdir(parents=True)
+
+    def tearDown(self):
+        shutil.rmtree(self.scratch, ignore_errors=True)
+
+    def _readme(self, pin=None):
+        linha = ""
+        if pin:
+            linha = f"pip install git+https://github.com/brunodavi/ai-rotation-key.git@{pin}\n"
+        (self.scratch / "README.md").write_text(f"# título\n\n{linha}", encoding="utf-8")
+
+    def test_pin_desatualizado_bloqueia_apontando_ambas_as_versoes(self):
+        self._readme("v0.5.0")
+        erro = commit_hook.validar_pin_readme("v0.7.0", raiz=self.scratch)
+        self.assertIsNotNone(erro)
+        self.assertIn("@v0.5.0", erro)
+        self.assertIn("v0.7.0", erro)
+
+    def test_pin_atualizado_passa(self):
+        self._readme("v0.8.0")
+        self.assertIsNone(commit_hook.validar_pin_readme("v0.8.0", raiz=self.scratch))
+
+    def test_sem_pin_bloqueia_com_orientacao(self):
+        self._readme(None)
+        erro = commit_hook.validar_pin_readme("v0.8.0", raiz=self.scratch)
+        self.assertIsNotNone(erro)
+        self.assertIn("git+", erro)
+
+    def test_repo_real_tem_o_pin_da_ultima_tag(self):
+        self.assertIsNone(commit_hook.validar_pin_readme(
+            f"v{commit_hook.ler_versao_pyproject(RAIZ)}", raiz=RAIZ,
+        ))
+
+
 class ValidarMensagemTests(unittest.TestCase):
     def _validar(self, mensagem):
         return commit_hook.validar_mensagem(mensagem)
