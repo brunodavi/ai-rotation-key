@@ -9,7 +9,7 @@ Ferramentas comuns de rotação/proxy de chaves quebram no Termux por exigirem R
 ## Instalação
 
 ```sh
-pip install git+https://github.com/brunodavi/ai-rotation-key.git@v0.5.0
+pip install git+https://github.com/brunodavi/ai-rotation-key.git@v0.7.0
 ```
 
 Requisito: Python 3.14+. A branch padrão (`dev`) recebe trabalho em andamento — para uso estável, instale sempre fixando a **última tag** (toda tag passou por suíte verde e validação manual).
