@@ -225,8 +225,7 @@ class HttpServerTests(unittest.TestCase):
         self.assertEqual(status, 200)
         enviado = json.loads(self.upstream_b.requests[-1]["body"])
         self.assertEqual(enviado["model"], "m-custom")
-        auths = [r["headers"]["Authorization"] for r in self.upstream_b.requests]
-        self.assertEqual(auths[0], "X-Key: sk-gw1")
+        self.assertEqual(self.upstream_b.requests[-1]["headers"].get("X-Key"), "sk-gw1")
 
         chunks = [b'data: {"choices":[{"delta":{"content":"1"}}]}\n\n', b"data: [DONE]\n\n"]
         self.upstream_b.register_stream("POST", "/gw/v2/chat", chunks)
@@ -236,8 +235,10 @@ class HttpServerTests(unittest.TestCase):
              "stream": True},
         )
         self.assertEqual(status, 200)
-        auth_stream = self.upstream_b.requests[-1]["headers"]["Authorization"]
-        self.assertIn("X-Key:", auth_stream)
+        self.assertEqual(
+            self.upstream_b.requests[-1]["headers"].get("X-Key"),
+            self.upstream_b.requests[0]["headers"].get("X-Key"),
+        )
 
     def test_provider_com_traducao_converte_request_e_response(self):
         self.providers["nat"] = {
@@ -283,8 +284,9 @@ class HttpServerTests(unittest.TestCase):
         ])
         self.assertNotIn("messages", enviado)
         self.assertNotIn("model", enviado)
-        auths = [r["headers"].get("Authorization") for r in self.upstream_b.requests]
-        self.assertEqual(auths[-1], "x-goog-api-key: sk-n1")
+        cabecalhos = self.upstream_b.requests[-1]["headers"]
+        self.assertEqual(cabecalhos.get("x-goog-api-key"), "sk-n1")
+        self.assertNotIn("Authorization", cabecalhos)
         resposta = json.loads(body)
         self.assertEqual(resposta["object"], "chat.completion")
         self.assertEqual(resposta["choices"], [{

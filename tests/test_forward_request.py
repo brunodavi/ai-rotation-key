@@ -28,6 +28,17 @@ class ForwardRequestTests(unittest.TestCase):
         self.assertEqual(json.loads(body), {"ok": 1})
         self.assertEqual(len(self.upstream.requests), 1)
 
+    def test_auth_header_com_nome_customizado(self):
+        rr = self._rr(["sk-a"])
+        self.upstream.register("POST", "/v1/chat/completions", status=200, body={"ok": 1})
+        forward_request(
+            rr, "modelo", self.payload, url=self.url,
+            auth_header="x-goog-api-key: {api-key}",
+        )
+        cabecalhos = self.upstream.requests[-1]["headers"]
+        self.assertEqual(cabecalhos.get("x-goog-api-key"), "sk-a")
+        self.assertNotIn("Authorization", cabecalhos)
+
     def test_429_rotaciona_e_autorizacao_troca_por_chave(self):
         rr = self._rr(["sk-a", "sk-b"])
         self.upstream.register("POST", "/v1/chat/completions", status=429, body={"e": 1})
