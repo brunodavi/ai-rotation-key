@@ -4,7 +4,8 @@ Uso:
     commit_hook.py pre-commit            → nada de segredo/lixo/tmp no staged
     commit_hook.py commit-msg <arquivo>  → valida `<tipo>(<escopo>): [FASE - ]mensagem`
     commit_hook.py pre-push (stdin)      → tags são PROD: semver subindo, versão do
-                                           pyproject consistente, SUÍTE verde, árvore limpa
+                                           pyproject consistente, pin do README na
+                                           tag, SUÍTE verde, árvore limpa
 
 Fases obrigatórias: test→RED · feat→GREEN · refactor→REFACTOR · fix→RED|GREEN.
 docs/chore não levam fase. Merge/Revert são imunes.
@@ -54,6 +55,26 @@ def ler_versao_pyproject(raiz="."):
     return casado.group(1) if casado else ""
 
 
+PIN_README = re.compile(r"git\+https://github\.com/brunodavi/ai-rotation-key\.git@(\S+)")
+
+
+def validar_pin_readme(tag, raiz="."):
+    """O pin de instalação do README precisa apontar para a tag publicada."""
+    try:
+        conteudo = open(os.path.join(raiz, "README.md"), encoding="utf-8").read()
+    except OSError:
+        return "README.md não encontrado — o pin de instalação (@vX.Y.Z) é obrigatório"
+    casado = PIN_README.search(conteudo)
+    if not casado:
+        return ("README.md sem pin de instalação — inclua "
+                "'pip install git+...ai-rotation-key.git@" + tag + "'")
+    pin = casado.group(1)
+    if pin != tag:
+        return (f"pin do README (@{pin}) não bate com a tag '{tag}' — "
+                f"atualize o README antes de publicar")
+    return None
+
+
 def validar_tag(tag, versao, tags_existentes):
     """Valida uma tag a ser publicada (prod). Retorna None ou texto do erro."""
     tupla = _tupla_semver(tag)
@@ -101,6 +122,10 @@ def pre_push():
                                 capture_output=True, text=True).stdout.split())
     for tag in tags:
         erro = validar_tag(tag, versao, locais - {tag})
+        if erro:
+            falhas.append(erro)
+            continue
+        erro = validar_pin_readme(tag)
         if erro:
             falhas.append(erro)
 
