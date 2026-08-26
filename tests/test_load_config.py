@@ -221,6 +221,78 @@ class LoadConfigTests(unittest.TestCase):
                     load_config()
                 self.assertIn("mapeamento", str(ctx.exception))
 
+    def test_maps_de_traducao_validados_e_preservados(self):
+        provider = {
+            "base-url": "https://generativelanguage.googleapis.com/v1beta",
+            "api-keys": ["sk-a"],
+            "models": ["gemini-3.6-flash"],
+            "chat-endpoint": "/models/{model}:generateContent",
+            "auth-header": "x-goog-api-key: {api-key}",
+            "request-map": {
+                "contents[].role": "messages[].role",
+                "contents[].parts[].text": "messages[].content",
+            },
+            "response-map": {
+                "choices[0].message.content": "candidates[0].content.parts[0].text",
+                "choices[0].finish_reason": "candidates[0].finishReason",
+                "usage.prompt_tokens": "usageMetadata.promptTokenCount",
+                "usage.completion_tokens": "usageMetadata.candidatesTokenCount",
+                "usage.total_tokens": "usageMetadata.totalTokenCount",
+            },
+            "role-map": {"assistant": "model"},
+        }
+        self._escrever({"providers": {"gemini-native": provider}})
+        dados = load_config()
+        traduzido = dados["providers"]["gemini-native"]
+        self.assertEqual(
+            traduzido["request-map"]["contents[].parts[].text"],
+            "messages[].content",
+        )
+        self.assertEqual(
+            traduzido["response-map"]["choices[0].message.content"],
+            "candidates[0].content.parts[0].text",
+        )
+        self.assertEqual(traduzido["role-map"], {"assistant": "model"})
+
+    def test_maps_de_traducao_ausentes_nao_aparecem_no_dict(self):
+        self._escrever({
+            "providers": {"gemini": {"api-keys": ["sk-a"], "models": ["m"]}}
+        })
+        dados = load_config()
+        gemini = dados["providers"]["gemini"]
+        for campo in ("request-map", "response-map", "role-map"):
+            self.assertNotIn(campo, gemini)
+
+    def test_maps_de_traducao_invalidos_levanta_value_error(self):
+        casos = [
+            ("request-map", "texto-solto"),
+            ("request-map", 42),
+            ("request-map", []),
+            ("request-map", {}),
+            ("request-map", {"contents[]": ""}),
+            ("request-map", {"": "messages[].content"}),
+            ("request-map", {"contents[].role": 42}),
+            ("response-map", {"a.b": ""}),
+            ("role-map", ["assistant"]),
+            ("role-map", {"assistant": ""}),
+            ("role-map", {"assistant": 42}),
+            ("role-map", {"": "model"}),
+        ]
+        for campo, valor in casos:
+            with self.subTest(campo=campo, valor=valor):
+                provider = {
+                    "base-url": "https://gw.exemplo/api",
+                    "api-keys": ["sk-a"],
+                    "models": ["m"],
+                    campo: valor,
+                }
+                self._escrever({"providers": {"meu-gateway": provider}})
+                with self.assertRaises(ValueError) as ctx:
+                    load_config()
+                mensagem = str(ctx.exception)
+                self.assertIn(campo, mensagem)
+                self.assertIn("meu-gateway", mensagem)
+
     def test_nomes_antigos_do_mapeamento_rejeitados(self):
         for antigo in ("rota-models", "sufixo-chat"):
             with self.subTest(antigo=antigo):
