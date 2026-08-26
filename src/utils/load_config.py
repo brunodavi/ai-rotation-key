@@ -108,7 +108,9 @@ def _validar_providers(dados):
     return providers
 
 
-_CAMPOS_MAPEAMENTO = ("models-endpoint", "path-models", "chat-endpoint", "auth-header")
+_CAMPOS_MAPEAMENTO = (
+    "models-endpoint", "path-models", "chat-endpoint", "chat-endpoint-stream", "auth-header",
+)
 _NOMES_ANTIGOS = {"rota-models": "models-endpoint", "sufixo-chat": "chat-endpoint"}
 _CAMPOS_MAPAS = ("request-map", "response-map", "role-map")
 
