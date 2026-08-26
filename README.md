@@ -87,6 +87,7 @@ Providers cujo `/models` ou chat fogem do padrão OpenAI aceitam campos opcionai
   "models-endpoint": "/catalogo",
   "path-models": "result.items[].modelId",
   "chat-endpoint": "/v2/chat",
+  "chat-endpoint-stream": "/v2/chat:stream",
   "auth-header": "X-Key: {api-key}"
 }
 ```
@@ -95,10 +96,44 @@ Providers cujo `/models` ou chat fogem do padrão OpenAI aceitam campos opcionai
 |---|---|---|
 | `models-endpoint` | rota de descoberta anexada ao `base-url` | `/models` |
 | `path-models` | caminho dot-path dos ids na resposta (null-safe: item sem o campo é pulado) | `data[].id` |
-| `chat-endpoint` | rota anexada ao `base-url` no POST de chat | `/chat/completions` |
-| `auth-header` | template do header de autenticação (`{api-key}` vira a chave do ciclo atual) | `Bearer {api-key}` |
+| `chat-endpoint` | rota anexada ao `base-url` no POST de chat; aceita `{model}` (ex.: `/models/{model}:generateContent`) | `/chat/completions` |
+| `chat-endpoint-stream` | rota alternativa usada quando o cliente pede `stream: true` (também aceita `{model}`) | valor de `chat-endpoint` |
+| `auth-header` | template do header de autenticação; `{api-key}` vira a chave do ciclo atual. Com `Nome: {api-key}` define também o nome do header (ex.: `x-goog-api-key: {api-key}`); sem dois-pontos, vira valor de `Authorization` | `Bearer {api-key}` |
 
 Se `path-models` não encontrar nada, o `sync-models` reporta falha daquele provider com o motivo — nada é adicionado.
+
+### Gateway com formato próprio (tradução de corpo)
+
+Quando o gateway não fala OpenAI nem no corpo, os campos opcionais `request-map`, `response-map` e `role-map` traduzem ida e volta via dot-path null-safe (campo ausente nunca quebra). Exemplo real validado contra o Gemini native:
+
+```json
+"gemini-native": {
+  "base-url": "https://generativelanguage.googleapis.com/v1beta",
+  "api-keys": ["sua-chave"],
+  "models": ["gemini-3.6-flash"],
+  "chat-endpoint": "/models/{model}:generateContent",
+  "chat-endpoint-stream": "/models/{model}:streamGenerateContent?alt=sse",
+  "auth-header": "x-goog-api-key: {api-key}",
+  "request-map": {
+    "contents[].role": "messages[].role",
+    "contents[].parts[0].text": "messages[].content"
+  },
+  "response-map": {
+    "choices[0].message.content": "candidates[0].content.parts[0].text",
+    "choices[0].finish_reason": "candidates[0].finishReason",
+    "usage.prompt_tokens": "usageMetadata.promptTokenCount",
+    "usage.completion_tokens": "usageMetadata.candidatesTokenCount",
+    "usage.total_tokens": "usageMetadata.totalTokenCount"
+  },
+  "role-map": { "assistant": "model" }
+}
+```
+
+- `request-map`: `{destino-no-upstream: origem-openai}` — caminhos com `[]` iteram listas em paralelo (`messages[i]` alimenta `contents[i]`; os dois lados precisam iterar juntos); caminho sem `[]` copia valor único (ex.: `"generationConfig.temperature": "temperature"`). A saída contém só o que foi mapeado.
+- `response-map`: `{campo-openai: dot-path-na-resposta-upstream}` — monta envelope `chat.completion` válido mesmo se nada casar; `finish_reason` é normalizado para minúsculas; erros não-200 do upstream passam crus, sem tradução.
+- `role-map`: opcional, aplica só a valores extraídos de campos `role`.
+- Stream: cada evento nativo vira um chunk `delta` OpenAI e o proxy sintetiza o `data: [DONE]` final (gateways sem terminador, como o Gemini native, funcionam igual).
+- Providers embutidos e configs sem esses campos continuam passthrough puro, como antes.
 
 ## Como funciona
 
