@@ -49,14 +49,15 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
   - Formato: `<tipo>(<escopo-opcional>): <FASE> - <mensagem>` · Fase por tipo: test→RED ·
     feat→GREEN · refactor→REFACTOR · fix→RED|GREEN · docs/chore SEM fase · Merge/Revert imunes ·
     REFACTOR é opcional no ciclo
-- TAGS são PROD (pre-push valida): só sobem com versão semver MAIOR que a última existente, batendo com `pyproject.toml`, suíte verde e árvore limpa
+- TAGS são PROD (pre-push valida): só sobem com versão semver MAIOR que a última existente, batendo com `pyproject.toml`, com o pin de instalação do README apontando pra tag, suíte verde e árvore limpa
 - A cada ciclo comprovado — suíte verde + validação manual do dono — subir a versão no pyproject e criar a tag do estado estável
 - Hooks automáticos (`scripts/install-git-hooks.py`, uma vez por clone):
   - pre-commit: escaneia staged por segredos (sk-/AIza…), arquivo espúrio sem extensão e
     qualquer caminho em tmp/ — NÃO roda a suíte (o ciclo TDD exige commitar em RED)
   - commit-msg: valida o formato acima
-  - pre-push: gate de PROD para tags (versão/semver/suíte/árvore) — é AQUI que a suíte roda
-    no push; push de branch comum não testa (dev aceita qualquer estado)
+  - pre-push: gate de PROD para tags (versão/semver/pin do README/suíte/árvore) — é AQUI que a
+    suíte roda no push; o README tem que apontar `git+…@<tag>` sendo publicada; push de branch
+    comum não testa (dev aceita qualquer estado)
 - Testes de integração SEMPRE via `tests/mock_server.py`: rotas as-is com respostas registráveis, `reset()` por teste, sequenciais (1 worker, sem paralelismo)
 - Porta em teste: efêmera por padrão; se fixada via `AI_ROTATION_MOCK_PORT`, anti-colisão +1 (`find_free_port`)
 - NADA fora do projeto (Termux não tem /tmp): fixtures de HOME em `tmp/.scratch/`, nunca tempfile do sistema; servidor real deriva porta com +1 e loga a efetiva
