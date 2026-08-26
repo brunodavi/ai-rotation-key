@@ -1,6 +1,11 @@
 import unittest
 
-from src.utils.translate_body import translate_request, translate_response
+from src.utils.translate_body import (
+    translate_chunk,
+    translate_request,
+    translate_response,
+    translate_sse_line,
+)
 
 
 GEMINI_REQUEST_MAP = {
@@ -144,6 +149,61 @@ class TranslateResponseTests(unittest.TestCase):
         upstream = {"candidates": [{"finishReason": "MAX_TOKENS"}]}
         saida = translate_response(upstream, GEMINI_RESPONSE_MAP)
         self.assertEqual(saida["choices"], [{"finish_reason": "max_tokens"}])
+
+
+class TranslateChunkTests(unittest.TestCase):
+    def test_chunk_native_vira_delta_openai(self):
+        chunk = {
+            "candidates": [{"content": {"parts": [{"text": "1, 2"}], "role": "model"}, "index": 0}],
+            "usageMetadata": {"totalTokenCount": 245},
+        }
+        saida = translate_chunk(chunk, GEMINI_RESPONSE_MAP)
+        self.assertEqual(saida["object"], "chat.completion.chunk")
+        self.assertEqual(saida["choices"], [{
+            "delta": {"role": "assistant", "content": "1, 2"},
+            "finish_reason": None,
+        }])
+        self.assertEqual(saida["usage"], {"total_tokens": 245})
+
+    def test_chunk_final_carrega_finish_reason(self):
+        chunk = {
+            "candidates": [{
+                "content": {"parts": [{"text": ""}], "role": "model"},
+                "finishReason": "STOP",
+                "index": 0,
+            }],
+        }
+        saida = translate_chunk(chunk, GEMINI_RESPONSE_MAP)
+        self.assertEqual(saida["choices"], [{
+            "delta": {"role": "assistant", "content": ""},
+            "finish_reason": "stop",
+        }])
+
+    def test_chunk_sem_nada_mapeavel_ainda_e_valido(self):
+        saida = translate_chunk({}, GEMINI_RESPONSE_MAP)
+        self.assertEqual(saida["object"], "chat.completion.chunk")
+        self.assertEqual(saida["choices"], [])
+
+
+class TranslateSseLineTests(unittest.TestCase):
+    def test_linha_data_traduzida_em_bytes(self):
+        linha = b'data: {"candidates": [{"content": {"parts": [{"text": "ola"}]}}]}\n\n'
+        saida = translate_sse_line(linha, GEMINI_RESPONSE_MAP)
+        self.assertTrue(saida.startswith(b"data: "))
+        self.assertIn(b'"delta"', saida)
+        self.assertIn(b'"content"', saida)
+        self.assertTrue(saida.endswith(b"\n\n"))
+
+    def test_linha_sem_data_passa_inalterada(self):
+        linha = b": keep-alive\n\n"
+        self.assertEqual(translate_sse_line(linha, GEMINI_RESPONSE_MAP), linha)
+
+    def test_json_quebrado_passa_inalterado(self):
+        linha = b"data: {quebrado\n\n"
+        self.assertEqual(translate_sse_line(linha, GEMINI_RESPONSE_MAP), linha)
+
+    def test_done_native_some(self):
+        self.assertIsNone(translate_sse_line(b"data: [DONE]\n\n", GEMINI_RESPONSE_MAP))
 
 
 if __name__ == "__main__":

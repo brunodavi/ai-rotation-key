@@ -293,6 +293,46 @@ class HttpServerTests(unittest.TestCase):
         }])
         self.assertEqual(resposta["usage"], {"total_tokens": 42})
 
+    def test_provider_com_traducao_converte_stream_com_done_sintetico(self):
+        self.providers["nat"] = {
+            "base-url": self.upstream_b.url("/native"),
+            "api-keys": ["sk-n1"],
+            "models": ["gemini-3.6-flash"],
+            "chat-endpoint": "/models/{model}:streamGenerateContent?alt=sse",
+            "auth-header": "x-goog-api-key: {api-key}",
+            "request-map": {
+                "contents[].role": "messages[].role",
+                "contents[].parts[0].text": "messages[].content",
+            },
+            "response-map": {
+                "choices[0].message.content": "candidates[0].content.parts[0].text",
+                "choices[0].finish_reason": "candidates[0].finishReason",
+            },
+            "role-map": {"assistant": "model"},
+        }
+        self._reiniciar_servidor()
+        self.upstream_b.register_stream(
+            "POST",
+            "/native/models/gemini-3.6-flash:streamGenerateContent?alt=sse",
+            [
+                b'data: {"candidates": [{"content": {"parts": [{"text": "1"}], "role": "model"}, "index": 0}]}\n\n',
+                b'data: {"candidates": [{"content": {"parts": [{"text": ", 2"}], "role": "model"}, "finishReason": "STOP", "index": 0}]}\n\n',
+            ],
+        )
+        status, body = self._post(
+            "/v1/chat/completions",
+            {"model": "nat/gemini-3.6-flash", "messages": [{"role": "user", "content": "conte"}],
+             "stream": True},
+        )
+        self.assertEqual(status, 200)
+        linhas = [l for l in body.decode("utf-8").split("\n\n") if l.startswith("data:")]
+        self.assertEqual(linhas[-1], "data: [DONE]")
+        chunks = [json.loads(l[len("data: "):]) for l in linhas[:-1]]
+        self.assertEqual(chunks[0]["object"], "chat.completion.chunk")
+        self.assertEqual(chunks[0]["choices"][0]["delta"]["content"], "1")
+        self.assertEqual(chunks[1]["choices"][0]["delta"]["content"], ", 2")
+        self.assertEqual(chunks[1]["choices"][0]["finish_reason"], "stop")
+
     def _reiniciar_servidor(self):
         self.server.shutdown()
         self.server.server_close()
