@@ -178,6 +178,7 @@ class LoadConfigTests(unittest.TestCase):
             "models-endpoint": "/catalogo",
             "path-models": "result.items[].modelId",
             "chat-endpoint": "/v2/chat",
+            "chat-endpoint-stream": "/v2/chat:stream",
             "auth-header": "X-Key: {api-key}",
         }
         self._escrever({"providers": {"meu-gateway": provider}})
@@ -186,6 +187,7 @@ class LoadConfigTests(unittest.TestCase):
         self.assertEqual(mapeado["models-endpoint"], "/catalogo")
         self.assertEqual(mapeado["path-models"], "result.items[].modelId")
         self.assertEqual(mapeado["chat-endpoint"], "/v2/chat")
+        self.assertEqual(mapeado["chat-endpoint-stream"], "/v2/chat:stream")
         self.assertEqual(mapeado["auth-header"], "X-Key: {api-key}")
 
     def test_mapeamento_sem_campos_nao_aparece_no_dict(self):

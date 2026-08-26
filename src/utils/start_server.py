@@ -79,8 +79,11 @@ class ProxyHandler(BaseHTTPRequestHandler):
             ).encode("utf-8")
         else:
             payload = json.dumps(dados).encode("utf-8")
-        endpoint = cfg.get("chat-endpoint", _SUFIXO_CHAT).replace("{model}", modelo_bare)
-        url = cfg["base-url"].rstrip("/") + endpoint
+        if dados.get("stream") and cfg.get("chat-endpoint-stream"):
+            template_endpoint = cfg["chat-endpoint-stream"]
+        else:
+            template_endpoint = cfg.get("chat-endpoint", _SUFIXO_CHAT)
+        url = cfg["base-url"].rstrip("/") + template_endpoint.replace("{model}", modelo_bare)
 
         if dados.get("stream"):
             self._repassar_stream(provider, payload, url)
