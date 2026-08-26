@@ -366,6 +366,35 @@ class HttpServerTests(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertEqual(json.loads(body), erro_native)
 
+    def test_chat_endpoint_stream_usado_quando_cliente_pede_stream(self):
+        self.providers["nat"] = {
+            "base-url": self.upstream_b.url("/native"),
+            "api-keys": ["sk-n1"],
+            "models": ["gemini-3.6-flash"],
+            "chat-endpoint": "/models/{model}:generateContent",
+            "chat-endpoint-stream": "/models/{model}:streamGenerateContent",
+            "request-map": {
+                "contents[].role": "messages[].role",
+                "contents[].parts[0].text": "messages[].content",
+            },
+            "response-map": {
+                "choices[0].message.content": "candidates[0].content.parts[0].text",
+            },
+        }
+        self._reiniciar_servidor()
+        self.upstream_b.register_stream(
+            "POST", "/native/models/gemini-3.6-flash:streamGenerateContent",
+            [b'data: {"candidates": [{"content": {"parts": [{"text": "x"}]}}]}\n\n'],
+        )
+        status, body = self._post(
+            "/v1/chat/completions",
+            {"model": "nat/gemini-3.6-flash", "messages": [{"role": "user", "content": "oi"}],
+             "stream": True},
+        )
+        self.assertEqual(status, 200)
+        caminhos = [r["path"] for r in self.upstream_b.requests]
+        self.assertEqual(caminhos[-1], "/native/models/gemini-3.6-flash:streamGenerateContent")
+
     def _reiniciar_servidor(self):
         self.server.shutdown()
         self.server.server_close()
