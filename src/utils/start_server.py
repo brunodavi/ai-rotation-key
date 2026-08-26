@@ -10,6 +10,7 @@ from src.utils.round_robin import RoundRobin
 from src.utils.sanitize_request import sanitize_request
 from src.utils.sanitize_response import sanitize_response_payload, sanitize_sse_line
 from src.utils.signature_cache import SignatureCache
+from src.utils.translate_body import translate_request, translate_response
 from src.utils.user_agent import USER_AGENT
 
 _CHAT_ROTAS = ("/chat/completions", "/v1/chat/completions")
@@ -65,9 +66,16 @@ class ProxyHandler(BaseHTTPRequestHandler):
             return
         dados["model"] = modelo_bare
         self.server.signature_cache.inject(dados.get("messages") or [])
-        payload = json.dumps(dados).encode("utf-8")
         cfg = self.server.providers[provider]
-        url = cfg["base-url"].rstrip("/") + cfg.get("chat-endpoint", _SUFIXO_CHAT)
+        request_map = cfg.get("request-map")
+        if request_map:
+            payload = json.dumps(
+                translate_request(dados, request_map, role_map=cfg.get("role-map"))
+            ).encode("utf-8")
+        else:
+            payload = json.dumps(dados).encode("utf-8")
+        endpoint = cfg.get("chat-endpoint", _SUFIXO_CHAT).replace("{model}", modelo_bare)
+        url = cfg["base-url"].rstrip("/") + endpoint
 
         if dados.get("stream"):
             self._repassar_stream(provider, payload, url)
@@ -78,10 +86,14 @@ class ProxyHandler(BaseHTTPRequestHandler):
         )
         try:
             resposta = json.loads(corpo)
+        except (json.JSONDecodeError, TypeError):
+            resposta = None
+        if resposta is not None:
+            response_map = cfg.get("response-map")
+            if response_map:
+                resposta = translate_response(resposta, response_map)
             self.server.signature_cache.collect(resposta)
             corpo = json.dumps(sanitize_response_payload(resposta)).encode("utf-8")
-        except (json.JSONDecodeError, TypeError):
-            pass
         self._enviar_json(status, None, raw=corpo)
 
     def _repassar_stream(self, provider, payload, url):

@@ -239,6 +239,68 @@ class HttpServerTests(unittest.TestCase):
         auth_stream = self.upstream_b.requests[-1]["headers"]["Authorization"]
         self.assertIn("X-Key:", auth_stream)
 
+    def test_provider_com_traducao_converte_request_e_response(self):
+        self.providers["nat"] = {
+            "base-url": self.upstream_b.url("/native"),
+            "api-keys": ["sk-n1"],
+            "models": ["gemini-3.6-flash"],
+            "chat-endpoint": "/models/{model}:generateContent",
+            "auth-header": "x-goog-api-key: {api-key}",
+            "request-map": {
+                "contents[].role": "messages[].role",
+                "contents[].parts[0].text": "messages[].content",
+            },
+            "response-map": {
+                "choices[0].message.content": "candidates[0].content.parts[0].text",
+                "choices[0].finish_reason": "candidates[0].finishReason",
+                "usage.total_tokens": "usageMetadata.totalTokenCount",
+            },
+            "role-map": {"assistant": "model"},
+        }
+        self._reiniciar_servidor()
+        self.upstream_b.register("POST", "/native/models/gemini-3.6-flash:generateContent", status=200, body={
+            "candidates": [{
+                "content": {"parts": [{"text": "OLA"}], "role": "model"},
+                "finishReason": "STOP",
+                "index": 0,
+            }],
+            "usageMetadata": {"promptTokenCount": 5, "totalTokenCount": 42},
+        })
+        status, body = self._post(
+            "/v1/chat/completions",
+            {"model": "nat/gemini-3.6-flash", "messages": [
+                {"role": "user", "content": "oi"},
+                {"role": "assistant", "content": "tudo bem"},
+                {"role": "user", "content": "confirma?"},
+            ]},
+        )
+        self.assertEqual(status, 200)
+        enviado = json.loads(self.upstream_b.requests[-1]["body"])
+        self.assertEqual(enviado["contents"], [
+            {"role": "user", "parts": [{"text": "oi"}]},
+            {"role": "model", "parts": [{"text": "tudo bem"}]},
+            {"role": "user", "parts": [{"text": "confirma?"}]},
+        ])
+        self.assertNotIn("messages", enviado)
+        self.assertNotIn("model", enviado)
+        auths = [r["headers"].get("Authorization") for r in self.upstream_b.requests]
+        self.assertEqual(auths[-1], "x-goog-api-key: sk-n1")
+        resposta = json.loads(body)
+        self.assertEqual(resposta["object"], "chat.completion")
+        self.assertEqual(resposta["choices"], [{
+            "message": {"role": "assistant", "content": "OLA"},
+            "finish_reason": "stop",
+        }])
+        self.assertEqual(resposta["usage"], {"total_tokens": 42})
+
+    def _reiniciar_servidor(self):
+        self.server.shutdown()
+        self.server.server_close()
+        self.server_thread.join(timeout=5)
+        self.server = build_server(providers=self.providers, port=0)
+        self.server_thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.server_thread.start()
+
     def test_stream_com_cliente_desconectado_nao_propaga_erro(self):
         """opencode pode abortar o stream a qualquer momento — handler engole e segue."""
         chunks = [b'data: {"choices":[{"delta":{"content":"x"}}]}\n\n', b"data: [DONE]\n\n"]
