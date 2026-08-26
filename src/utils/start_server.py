@@ -2,9 +2,10 @@ import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib import error, request
 
+from src.utils.auth_header import montar_auth
 from src.utils.config_paths import DEFAULT_PORT
 from src.utils.find_free_port import find_free_port
-from src.utils.forward_request import AUTH_PADRAO, forward_request
+from src.utils.forward_request import forward_request
 from src.utils.load_config import load_config
 from src.utils.round_robin import RoundRobin
 from src.utils.sanitize_request import sanitize_request
@@ -102,16 +103,17 @@ class ProxyHandler(BaseHTTPRequestHandler):
 
     def _repassar_stream(self, provider, payload, url):
         rr = self.server.round_robin
-        template = self.server.providers[provider].get("auth-header") or AUTH_PADRAO
+        template = self.server.providers[provider].get("auth-header")
         res = None
         for tentativa in range(rr.count(provider)):
             chave = rr.next(provider)
+            nome_auth, valor_auth = montar_auth(template, chave)
             req = request.Request(
                 url,
                 data=payload,
                 headers={
                     "Content-Type": "application/json",
-                    "Authorization": template.format(**{"api-key": chave}),
+                    nome_auth: valor_auth,
                     "User-Agent": USER_AGENT,
                 },
                 method="POST",

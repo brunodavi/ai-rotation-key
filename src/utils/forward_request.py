@@ -2,26 +2,26 @@ import http.client
 import json
 from urllib import error, request
 
+from src.utils.auth_header import PADRAO as AUTH_PADRAO, montar_auth
 from src.utils.user_agent import USER_AGENT
 
-DEFAULT_UPSTREAM = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
-AUTH_PADRAO = "Bearer {api-key}"
-
 _ROTACIONAVEIS = (error.URLError, OSError, http.client.HTTPException)
+
+DEFAULT_UPSTREAM = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
 
 
 def forward_request(round_robin, model, payload, url=DEFAULT_UPSTREAM, timeout=120,
                     auth_header=None):
     status, body, headers = _falha_conexao("upstream não alcançado")
-    template = auth_header or AUTH_PADRAO
     for _ in range(round_robin.count(model)):
         chave = round_robin.next(model)
+        nome_auth, valor_auth = montar_auth(auth_header, chave)
         req = request.Request(
             url,
             data=payload,
             headers={
                 "Content-Type": "application/json",
-                "Authorization": template.format(**{"api-key": chave}),
+                nome_auth: valor_auth,
                 "User-Agent": USER_AGENT,
             },
             method="POST",

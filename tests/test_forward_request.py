@@ -35,9 +35,9 @@ class ForwardRequestTests(unittest.TestCase):
             rr, "modelo", self.payload, url=self.url,
             auth_header="x-goog-api-key: {api-key}",
         )
-        cabecalhos = self.upstream.requests[-1]["headers"]
+        cabecalhos = {k.lower(): v for k, v in self.upstream.requests[-1]["headers"].items()}
         self.assertEqual(cabecalhos.get("x-goog-api-key"), "sk-a")
-        self.assertNotIn("Authorization", cabecalhos)
+        self.assertNotIn("authorization", cabecalhos)
 
     def test_429_rotaciona_e_autorizacao_troca_por_chave(self):
         rr = self._rr(["sk-a", "sk-b"])

@@ -236,8 +236,8 @@ class HttpServerTests(unittest.TestCase):
         )
         self.assertEqual(status, 200)
         self.assertEqual(
-            self.upstream_b.requests[-1]["headers"].get("X-Key"),
-            self.upstream_b.requests[0]["headers"].get("X-Key"),
+            {k.lower(): v for k, v in self.upstream_b.requests[-1]["headers"].items()}.get("x-key"),
+            "sk-gw2",
         )
 
     def test_provider_com_traducao_converte_request_e_response(self):
@@ -284,9 +284,9 @@ class HttpServerTests(unittest.TestCase):
         ])
         self.assertNotIn("messages", enviado)
         self.assertNotIn("model", enviado)
-        cabecalhos = self.upstream_b.requests[-1]["headers"]
+        cabecalhos = {k.lower(): v for k, v in self.upstream_b.requests[-1]["headers"].items()}
         self.assertEqual(cabecalhos.get("x-goog-api-key"), "sk-n1")
-        self.assertNotIn("Authorization", cabecalhos)
+        self.assertNotIn("authorization", cabecalhos)
         resposta = json.loads(body)
         self.assertEqual(resposta["object"], "chat.completion")
         self.assertEqual(resposta["choices"], [{

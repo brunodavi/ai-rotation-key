@@ -1,6 +1,7 @@
 import json
 from urllib import error, request
 
+from src.utils.auth_header import montar_auth
 from src.utils.dot_path import resolver
 from src.utils.user_agent import USER_AGENT
 
@@ -14,11 +15,11 @@ class FetchModelsError(Exception):
 def fetch_models(base_url, api_key, timeout=30, models_endpoint="/models",
                  path_modelos=None, auth_header=None):
     url = base_url.rstrip("/") + models_endpoint
-    template = auth_header or "Bearer {api-key}"
+    nome_auth, valor_auth = montar_auth(auth_header, api_key)
     req = request.Request(
         url,
         headers={
-            "Authorization": template.format(**{"api-key": api_key}),
+            nome_auth: valor_auth,
             "Accept": "application/json",
             "User-Agent": USER_AGENT,
         },

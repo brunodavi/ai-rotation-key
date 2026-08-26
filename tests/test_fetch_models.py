@@ -66,9 +66,9 @@ class FetchModelsTests(unittest.TestCase):
     def test_auth_header_template_com_nome_customizado(self):
         self._registrar(payload=_payload("m"))
         fetch_models(self.upstream.url("/v1"), "segredo123", auth_header="X-Key: {api-key}")
-        cabecalhos = self.upstream.requests[-1]["headers"]
-        self.assertEqual(cabecalhos.get("X-Key"), "segredo123")
-        self.assertNotIn("Authorization", cabecalhos)
+        cabecalhos = {k.lower(): v for k, v in self.upstream.requests[-1]["headers"].items()}
+        self.assertEqual(cabecalhos.get("x-key"), "segredo123")
+        self.assertNotIn("authorization", cabecalhos)
 
     def test_sem_mapeamento_mantem_comportamento_padrao(self):
         self._registrar(payload=_payload("models/m"))
