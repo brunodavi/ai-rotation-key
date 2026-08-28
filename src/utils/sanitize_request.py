@@ -32,7 +32,15 @@ def sanitize_request(data):
 
 def _padronizar_message(message):
     padronizada = dict(message)
-    if not padronizada.get("content"):
+    conteudo = padronizada.get("content")
+    if isinstance(conteudo, list):
+        partes = [
+            bloco.get("text", "")
+            for bloco in conteudo
+            if isinstance(bloco, dict) and bloco.get("type") == "text"
+        ]
+        padronizada["content"] = " ".join(partes).strip() or " "
+    elif not conteudo:
         padronizada["content"] = " "
     return padronizada
 

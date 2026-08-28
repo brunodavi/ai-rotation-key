@@ -88,6 +88,34 @@ class SanitizeRequestTests(unittest.TestCase):
         self.assertEqual(limpo["tools"][0]["type"], "function")
         self.assertEqual(limpo["tools"][1]["function"]["name"], "nova")
 
+    def test_content_lista_texto_vira_string(self):
+        mensagens = [
+            {"role": "user", "content": [{"type": "text", "text": "ola"}]},
+        ]
+        saida = sanitize_request({"model": "m", "messages": mensagens})["messages"]
+        self.assertEqual(saida[0]["content"], "ola")
+        self.assertIsInstance(saida[0]["content"], str)
+
+    def test_content_lista_misturar_texto_e_outros(self):
+        mensagens = [
+            {"role": "user", "content": [
+                {"type": "text", "text": "olá"},
+                {"type": "image_url", "image_url": {"url": "data:..."}},
+            ]},
+        ]
+        saida = sanitize_request({"model": "m", "messages": mensagens})["messages"]
+        self.assertEqual(saida[0]["content"], "olá")
+
+    def test_content_lista_vazia_vira_espaco(self):
+        mensagens = [{"role": "user", "content": []}]
+        saida = sanitize_request({"model": "m", "messages": mensagens})["messages"]
+        self.assertEqual(saida[0]["content"], " ")
+
+    def test_content_string_simples_nao_muda(self):
+        mensagens = [{"role": "user", "content": "hello"}]
+        saida = sanitize_request({"model": "m", "messages": mensagens})["messages"]
+        self.assertEqual(saida[0]["content"], "hello")
+
 
 if __name__ == "__main__":
     unittest.main()
