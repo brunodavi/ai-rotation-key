@@ -1,3 +1,5 @@
+import json
+
 ALLOWED_KEYS = {
     "model",
     "messages",
@@ -18,7 +20,7 @@ ALLOWED_KEYS = {
 FALLBACK_MESSAGES = [{"role": "user", "content": "Hello"}]
 
 
-_ROLES_GEMINI_NATIVE = {"system", "tool"}
+_ROLES_GEMINI_NATIVE = {"system"}
 
 
 def sanitize_request(data):
@@ -27,11 +29,12 @@ def sanitize_request(data):
     if not mensagens:
         limpo["messages"] = [dict(m) for m in FALLBACK_MESSAGES]
     else:
-        limpo["messages"] = [
+        filtradas = [
             _padronizar_message(m)
             for m in mensagens
             if m.get("role") not in _ROLES_GEMINI_NATIVE
         ]
+        limpo["messages"] = _converter_tool_calls(filtradas)
     if isinstance(limpo.get("tools"), list):
         limpo["tools"] = _normalizar_tools(limpo["tools"])
     return limpo
@@ -50,6 +53,23 @@ def _padronizar_message(message):
     elif not conteudo:
         padronizada["content"] = " "
     return padronizada
+
+
+def _converter_tool_calls(mensagens):
+    resultado = []
+    for msg in mensagens:
+        role = msg.get("role")
+        if role == "tool":
+            resultado.append({"role": "user", "content": msg.get("content", "")})
+        elif role == "assistant" and msg.get("tool_calls"):
+            nomes = [tc["function"]["name"] for tc in msg["tool_calls"]]
+            desc = ", ".join(nomes)
+            convertida = dict(msg)
+            convertida["content"] = f"[calling: {desc}]"
+            resultado.append(convertida)
+        else:
+            resultado.append(msg)
+    return resultado
 
 
 def _normalizar_tools(tools):

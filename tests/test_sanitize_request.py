@@ -137,17 +137,49 @@ class SanitizeRequestTests(unittest.TestCase):
         self.assertNotIn("system", roles)
         self.assertEqual(len(saida), 3)
 
-    def test_mensagem_tool_e_filtrada(self):
+    def test_mensagem_tool_vira_user_com_conteudo(self):
         mensagens = [
             {"role": "user", "content": "qual a hora?"},
             {"role": "assistant", "content": "", "tool_calls": [{"id": "t1", "function": {"name": "get_time", "arguments": "{}"}}]},
-            {"role": "tool", "content": "14:30"},
+            {"role": "tool", "tool_call_id": "t1", "content": "14:30"},
             {"role": "assistant", "content": "agora sao 14:30"},
         ]
         saida = sanitize_request({"model": "m", "messages": mensagens})["messages"]
         roles = [m["role"] for m in saida]
         self.assertNotIn("tool", roles)
-        self.assertEqual(len(saida), 3)
+        tool_convertida = saida[2]
+        self.assertEqual(tool_convertida["role"], "user")
+        self.assertEqual(tool_convertida["content"], "14:30")
+
+    def test_assistant_com_tool_calls_ganha_descricao(self):
+        mensagens = [
+            {"role": "user", "content": "qual a hora?"},
+            {"role": "assistant", "content": "", "tool_calls": [
+                {"id": "t1", "function": {"name": "get_time", "arguments": "{}"}},
+            ]},
+            {"role": "tool", "tool_call_id": "t1", "content": "14:30"},
+        ]
+        saida = sanitize_request({"model": "m", "messages": mensagens})["messages"]
+        assistant = saida[1]
+        self.assertEqual(assistant["role"], "assistant")
+        self.assertIn("get_time", assistant["content"])
+
+    def test_tool_calls_paralelas_ganham_descricao(self):
+        mensagens = [
+            {"role": "user", "content": "hora e clima?"},
+            {"role": "assistant", "content": "", "tool_calls": [
+                {"id": "t1", "function": {"name": "get_time", "arguments": "{}"}},
+                {"id": "t2", "function": {"name": "get_weather", "arguments": '{"city":"SP"}'}},
+            ]},
+            {"role": "tool", "tool_call_id": "t1", "content": "14:30"},
+            {"role": "tool", "tool_call_id": "t2", "content": "ensolarado"},
+        ]
+        saida = sanitize_request({"model": "m", "messages": mensagens})["messages"]
+        roles = [m["role"] for m in saida]
+        self.assertNotIn("tool", roles)
+        self.assertEqual(len(saida), 4)
+        self.assertEqual(saida[2]["role"], "user")
+        self.assertEqual(saida[3]["role"], "user")
 
 
 if __name__ == "__main__":
