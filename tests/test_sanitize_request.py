@@ -116,6 +116,27 @@ class SanitizeRequestTests(unittest.TestCase):
         saida = sanitize_request({"model": "m", "messages": mensagens})["messages"]
         self.assertEqual(saida[0]["content"], "hello")
 
+    def test_mensagem_system_e_filtrada(self):
+        mensagens = [
+            {"role": "system", "content": "voce e um assistente"},
+            {"role": "user", "content": "oi"},
+        ]
+        saida = sanitize_request({"model": "m", "messages": mensagens})["messages"]
+        self.assertEqual(len(saida), 1)
+        self.assertEqual(saida[0]["role"], "user")
+
+    def test_mensagem_system_no_meio_e_filtrada(self):
+        mensagens = [
+            {"role": "user", "content": "oi"},
+            {"role": "system", "content": "instrucao"},
+            {"role": "assistant", "content": "ola"},
+            {"role": "user", "content": "tudo bem?"},
+        ]
+        saida = sanitize_request({"model": "m", "messages": mensagens})["messages"]
+        roles = [m["role"] for m in saida]
+        self.assertNotIn("system", roles)
+        self.assertEqual(len(saida), 3)
+
 
 if __name__ == "__main__":
     unittest.main()

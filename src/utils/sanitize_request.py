@@ -24,7 +24,11 @@ def sanitize_request(data):
     if not mensagens:
         limpo["messages"] = [dict(m) for m in FALLBACK_MESSAGES]
     else:
-        limpo["messages"] = [_padronizar_message(m) for m in mensagens]
+        limpo["messages"] = [
+            _padronizar_message(m)
+            for m in mensagens
+            if m.get("role") != "system"
+        ]
     if isinstance(limpo.get("tools"), list):
         limpo["tools"] = _normalizar_tools(limpo["tools"])
     return limpo
