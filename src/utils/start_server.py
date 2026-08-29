@@ -57,22 +57,24 @@ class ProxyHandler(BaseHTTPRequestHandler):
             self._enviar_json(404, {"error": {"message": f"rota desconhecida: {self.path}"}})
             return
         try:
-            dados = json.loads(bruto.decode("utf-8")) if bruto else {}
+            dados_brutos = json.loads(bruto.decode("utf-8")) if bruto else {}
         except json.JSONDecodeError as exc:
             self._enviar_json(400, {"error": {"message": f"JSON inválido: {exc}"}})
             return
 
-        dados = sanitize_request(dados if isinstance(dados, dict) else {})
-        modelo = dados.get("model") or self.server.model_ids[0]
+        if not isinstance(dados_brutos, dict):
+            dados_brutos = {}
+        modelo = dados_brutos.get("model") or self.server.model_ids[0]
         try:
             provider, modelo_bare = self.server.resolver(modelo)
         except ValueError as exc:
             self._enviar_json(400, {"error": {"message": str(exc)}})
             return
-        dados["model"] = modelo_bare
-        self.server.signature_cache.inject(dados.get("messages") or [])
         cfg = self.server.providers[provider]
         request_map = cfg.get("request-map")
+        dados = sanitize_request(dados_brutos, gemini_native=bool(request_map))
+        dados["model"] = modelo_bare
+        self.server.signature_cache.inject(dados.get("messages") or [])
         if request_map:
             payload = json.dumps(
                 translate_request(dados, request_map, role_map=cfg.get("role-map"))

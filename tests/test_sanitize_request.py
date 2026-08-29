@@ -121,7 +121,8 @@ class SanitizeRequestTests(unittest.TestCase):
             {"role": "system", "content": "voce e um assistente"},
             {"role": "user", "content": "oi"},
         ]
-        saida = sanitize_request({"model": "m", "messages": mensagens})["messages"]
+        saida = sanitize_request({"model": "m", "messages": mensagens}, gemini_native=True)
+        saida = saida["messages"]
         self.assertEqual(len(saida), 1)
         self.assertEqual(saida[0]["role"], "user")
 
@@ -132,7 +133,8 @@ class SanitizeRequestTests(unittest.TestCase):
             {"role": "assistant", "content": "ola"},
             {"role": "user", "content": "tudo bem?"},
         ]
-        saida = sanitize_request({"model": "m", "messages": mensagens})["messages"]
+        saida = sanitize_request({"model": "m", "messages": mensagens}, gemini_native=True)
+        saida = saida["messages"]
         roles = [m["role"] for m in saida]
         self.assertNotIn("system", roles)
         self.assertEqual(len(saida), 3)
@@ -144,7 +146,8 @@ class SanitizeRequestTests(unittest.TestCase):
             {"role": "tool", "tool_call_id": "t1", "content": "14:30"},
             {"role": "assistant", "content": "agora sao 14:30"},
         ]
-        saida = sanitize_request({"model": "m", "messages": mensagens})["messages"]
+        saida = sanitize_request({"model": "m", "messages": mensagens}, gemini_native=True)
+        saida = saida["messages"]
         roles = [m["role"] for m in saida]
         self.assertNotIn("tool", roles)
         tool_convertida = saida[2]
@@ -159,7 +162,8 @@ class SanitizeRequestTests(unittest.TestCase):
             ]},
             {"role": "tool", "tool_call_id": "t1", "content": "14:30"},
         ]
-        saida = sanitize_request({"model": "m", "messages": mensagens})["messages"]
+        saida = sanitize_request({"model": "m", "messages": mensagens}, gemini_native=True)
+        saida = saida["messages"]
         assistant = saida[1]
         self.assertEqual(assistant["role"], "assistant")
         self.assertIn("get_time", assistant["content"])
@@ -174,12 +178,38 @@ class SanitizeRequestTests(unittest.TestCase):
             {"role": "tool", "tool_call_id": "t1", "content": "14:30"},
             {"role": "tool", "tool_call_id": "t2", "content": "ensolarado"},
         ]
-        saida = sanitize_request({"model": "m", "messages": mensagens})["messages"]
+        saida = sanitize_request({"model": "m", "messages": mensagens}, gemini_native=True)
+        saida = saida["messages"]
         roles = [m["role"] for m in saida]
         self.assertNotIn("tool", roles)
         self.assertEqual(len(saida), 4)
         self.assertEqual(saida[2]["role"], "user")
         self.assertEqual(saida[3]["role"], "user")
+
+    def test_provider_openai_nao_converte_tool_calls(self):
+        mensagens = [
+            {"role": "user", "content": "qual a hora?"},
+            {"role": "assistant", "content": "", "tool_calls": [
+                {"id": "t1", "type": "function", "function": {"name": "get_time", "arguments": "{}"}},
+            ]},
+            {"role": "tool", "tool_call_id": "t1", "content": "14:30"},
+        ]
+        saida = sanitize_request({"model": "m", "messages": mensagens})
+        saida = saida["messages"]
+        self.assertEqual(saida[1]["role"], "assistant")
+        self.assertIn("tool_calls", saida[1])
+        self.assertEqual(saida[2]["role"], "tool")
+        self.assertEqual(saida[2]["content"], "14:30")
+
+    def test_provider_openai_mantem_system(self):
+        mensagens = [
+            {"role": "system", "content": "voce e um assistente"},
+            {"role": "user", "content": "oi"},
+        ]
+        saida = sanitize_request({"model": "m", "messages": mensagens})
+        saida = saida["messages"]
+        self.assertEqual(len(saida), 2)
+        self.assertEqual(saida[0]["role"], "system")
 
 
 if __name__ == "__main__":

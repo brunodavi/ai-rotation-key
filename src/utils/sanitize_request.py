@@ -23,18 +23,21 @@ FALLBACK_MESSAGES = [{"role": "user", "content": "Hello"}]
 _ROLES_GEMINI_NATIVE = {"system"}
 
 
-def sanitize_request(data):
+def sanitize_request(data, gemini_native=False):
     limpo = {chave: valor for chave, valor in data.items() if chave in ALLOWED_KEYS}
     mensagens = limpo.get("messages")
     if not mensagens:
         limpo["messages"] = [dict(m) for m in FALLBACK_MESSAGES]
     else:
-        filtradas = [
-            _padronizar_message(m)
-            for m in mensagens
-            if m.get("role") not in _ROLES_GEMINI_NATIVE
-        ]
-        limpo["messages"] = _converter_tool_calls(filtradas)
+        if gemini_native:
+            filtradas = [
+                _padronizar_message(m)
+                for m in mensagens
+                if m.get("role") not in _ROLES_GEMINI_NATIVE
+            ]
+            limpo["messages"] = _converter_tool_calls(filtradas)
+        else:
+            limpo["messages"] = [_padronizar_message(m) for m in mensagens]
     if isinstance(limpo.get("tools"), list):
         limpo["tools"] = _normalizar_tools(limpo["tools"])
     return limpo
