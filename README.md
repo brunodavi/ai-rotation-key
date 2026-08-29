@@ -102,39 +102,6 @@ Providers cujo `/models` ou chat fogem do padrão OpenAI aceitam campos opcionai
 
 Se `path-models` não encontrar nada, o `sync-models` reporta falha daquele provider com o motivo — nada é adicionado.
 
-### Gateway com formato próprio (tradução de corpo)
-
-Quando o gateway não fala OpenAI nem no corpo, os campos opcionais `request-map`, `response-map` e `role-map` traduzem ida e volta via dot-path null-safe (campo ausente nunca quebra). Exemplo real validado contra o Gemini native:
-
-```json
-"gemini-native": {
-  "base-url": "https://generativelanguage.googleapis.com/v1beta",
-  "api-keys": ["sua-chave"],
-  "models": ["gemini-3.6-flash"],
-  "chat-endpoint": "/models/{model}:generateContent",
-  "chat-endpoint-stream": "/models/{model}:streamGenerateContent?alt=sse",
-  "auth-header": "x-goog-api-key: {api-key}",
-  "request-map": {
-    "contents[].role": "messages[].role",
-    "contents[].parts[0].text": "messages[].content"
-  },
-  "response-map": {
-    "choices[0].message.content": "candidates[0].content.parts[0].text",
-    "choices[0].finish_reason": "candidates[0].finishReason",
-    "usage.prompt_tokens": "usageMetadata.promptTokenCount",
-    "usage.completion_tokens": "usageMetadata.candidatesTokenCount",
-    "usage.total_tokens": "usageMetadata.totalTokenCount"
-  },
-  "role-map": { "assistant": "model" }
-}
-```
-
-- `request-map`: `{destino-no-upstream: origem-openai}` — caminhos com `[]` iteram listas em paralelo (`messages[i]` alimenta `contents[i]`; os dois lados precisam iterar juntos); caminho sem `[]` copia valor único (ex.: `"generationConfig.temperature": "temperature"`). A saída contém só o que foi mapeado.
-- `response-map`: `{campo-openai: dot-path-na-resposta-upstream}` — monta envelope `chat.completion` válido mesmo se nada casar; `finish_reason` é normalizado para minúsculas; erros não-200 do upstream passam crus, sem tradução.
-- `role-map`: opcional, aplica só a valores extraídos de campos `role`.
-- Stream: cada evento nativo vira um chunk `delta` OpenAI e o proxy sintetiza o `data: [DONE]` final (gateways sem terminador, como o Gemini native, funcionam igual).
-- Providers embutidos e configs sem esses campos continuam passthrough puro, como antes.
-
 ## Como funciona
 
 O proxy recebe chamadas OpenAI-compatíveis, escolhe a próxima chave do modelo pedido (round-robin) e repassa ao upstream. Em 429 ou erro de conexão ele tenta automaticamente a próxima chave; em 400/404 repassa direto sem gastar o pool. Assinaturas `thought_signature` de tool calls (exigidas pelo Gemini 3.x no turno seguinte) são guardadas e reinjetadas automaticamente — o cliente nunca vê campos extras.

@@ -96,14 +96,12 @@ def _validar_providers(dados):
                 f"ex.: \"base-url\": \"https://api.exemplo.com/v1\""
             )
         mapeamento = _validar_mapeamento(nome, cfg)
-        mapas = _validar_mapas_traducao(nome, cfg)
         providers[nome] = {
             "base-url": base_url,
             "api-keys": api_keys,
             "filter-models": filtros,
             "models": modelos,
             **mapeamento,
-            **mapas,
         }
     return providers
 
@@ -112,32 +110,6 @@ _CAMPOS_MAPEAMENTO = (
     "models-endpoint", "path-models", "chat-endpoint", "chat-endpoint-stream", "auth-header",
 )
 _NOMES_ANTIGOS = {"rota-models": "models-endpoint", "sufixo-chat": "chat-endpoint"}
-_CAMPOS_MAPAS = ("request-map", "response-map", "role-map")
-
-
-def _validar_mapas_traducao(nome, cfg):
-    """Campos opcionais de tradução de corpo: request-map, response-map, role-map."""
-    mapas = {}
-    for campo in _CAMPOS_MAPAS:
-        valor = cfg.get(campo)
-        if valor is None:
-            continue
-        if not isinstance(valor, dict) or not valor:
-            raise ValueError(
-                f"mapeamento inválido no provider '{nome}': '{campo}' deve ser objeto "
-                f"não-vazio de dot-paths (ex.: {{\"contents[].role\": \"messages[].role\"}})"
-            )
-        for origem, destino in valor.items():
-            if (
-                not isinstance(origem, str) or not origem.strip()
-                or not isinstance(destino, str) or not destino.strip()
-            ):
-                raise ValueError(
-                    f"mapeamento inválido no provider '{nome}': '{campo}' deve ter chaves "
-                    f"e valores strings não-vazias (recebido {origem!r}: {destino!r})"
-                )
-        mapas[campo] = {o.strip(): d.strip() for o, d in valor.items()}
-    return mapas
 
 
 def _validar_mapeamento(nome, cfg):

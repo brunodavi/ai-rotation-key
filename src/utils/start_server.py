@@ -11,11 +11,6 @@ from src.utils.round_robin import RoundRobin
 from src.utils.sanitize_request import sanitize_request
 from src.utils.sanitize_response import sanitize_response_payload, sanitize_sse_line
 from src.utils.signature_cache import SignatureCache
-from src.utils.translate_body import (
-    translate_request,
-    translate_response,
-    translate_sse_line,
-)
 from src.utils.user_agent import USER_AGENT
 
 _CHAT_ROTAS = ("/chat/completions", "/v1/chat/completions")
@@ -57,35 +52,27 @@ class ProxyHandler(BaseHTTPRequestHandler):
             self._enviar_json(404, {"error": {"message": f"rota desconhecida: {self.path}"}})
             return
         try:
-            dados_brutos = json.loads(bruto.decode("utf-8")) if bruto else {}
+            dados = json.loads(bruto.decode("utf-8")) if bruto else {}
         except json.JSONDecodeError as exc:
             self._enviar_json(400, {"error": {"message": f"JSON inválido: {exc}"}})
             return
 
-        if not isinstance(dados_brutos, dict):
-            dados_brutos = {}
-        modelo = dados_brutos.get("model") or self.server.model_ids[0]
+        dados = sanitize_request(dados if isinstance(dados, dict) else {})
+        modelo = dados.get("model") or self.server.model_ids[0]
         try:
             provider, modelo_bare = self.server.resolver(modelo)
         except ValueError as exc:
             self._enviar_json(400, {"error": {"message": str(exc)}})
             return
-        cfg = self.server.providers[provider]
-        request_map = cfg.get("request-map")
-        dados = sanitize_request(dados_brutos, gemini_native=bool(request_map))
         dados["model"] = modelo_bare
         self.server.signature_cache.inject(dados.get("messages") or [])
-        if request_map:
-            payload = json.dumps(
-                translate_request(dados, request_map, role_map=cfg.get("role-map"))
-            ).encode("utf-8")
-        else:
-            payload = json.dumps(dados).encode("utf-8")
+        cfg = self.server.providers[provider]
         if dados.get("stream") and cfg.get("chat-endpoint-stream"):
             template_endpoint = cfg["chat-endpoint-stream"]
         else:
             template_endpoint = cfg.get("chat-endpoint", _SUFIXO_CHAT)
         url = cfg["base-url"].rstrip("/") + template_endpoint.replace("{model}", modelo_bare)
+        payload = json.dumps(dados).encode("utf-8")
 
         if dados.get("stream"):
             self._repassar_stream(provider, payload, url)
@@ -99,9 +86,6 @@ class ProxyHandler(BaseHTTPRequestHandler):
         except (json.JSONDecodeError, TypeError):
             resposta = None
         if resposta is not None:
-            response_map = cfg.get("response-map")
-            if response_map and status == 200:
-                resposta = translate_response(resposta, response_map)
             self.server.signature_cache.collect(resposta)
             corpo = json.dumps(sanitize_response_payload(resposta)).encode("utf-8")
         self._enviar_json(status, None, raw=corpo)
@@ -148,19 +132,9 @@ class ProxyHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.close_connection = True
             coletor = self.server.signature_cache.collect
-            response_map = self.server.providers[provider].get("response-map")
-            if response_map:
-                for linha in res:
-                    traduzida = translate_sse_line(linha, response_map)
-                    if traduzida is not None:
-                        self.wfile.write(traduzida)
-                        self.wfile.flush()
-                self.wfile.write(b"data: [DONE]\n\n")
+            for linha in res:
+                self.wfile.write(sanitize_sse_line(linha, collector=coletor))
                 self.wfile.flush()
-            else:
-                for linha in res:
-                    self.wfile.write(sanitize_sse_line(linha, collector=coletor))
-                    self.wfile.flush()
         except (ConnectionResetError, BrokenPipeError, OSError):
             return
         finally:
