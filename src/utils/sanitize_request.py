@@ -18,6 +18,9 @@ ALLOWED_KEYS = {
 FALLBACK_MESSAGES = [{"role": "user", "content": "Hello"}]
 
 
+_ROLES_GEMINI_NATIVE = {"system", "tool"}
+
+
 def sanitize_request(data):
     limpo = {chave: valor for chave, valor in data.items() if chave in ALLOWED_KEYS}
     mensagens = limpo.get("messages")
@@ -27,7 +30,7 @@ def sanitize_request(data):
         limpo["messages"] = [
             _padronizar_message(m)
             for m in mensagens
-            if m.get("role") != "system"
+            if m.get("role") not in _ROLES_GEMINI_NATIVE
         ]
     if isinstance(limpo.get("tools"), list):
         limpo["tools"] = _normalizar_tools(limpo["tools"])

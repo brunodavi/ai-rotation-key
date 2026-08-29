@@ -137,6 +137,18 @@ class SanitizeRequestTests(unittest.TestCase):
         self.assertNotIn("system", roles)
         self.assertEqual(len(saida), 3)
 
+    def test_mensagem_tool_e_filtrada(self):
+        mensagens = [
+            {"role": "user", "content": "qual a hora?"},
+            {"role": "assistant", "content": "", "tool_calls": [{"id": "t1", "function": {"name": "get_time", "arguments": "{}"}}]},
+            {"role": "tool", "content": "14:30"},
+            {"role": "assistant", "content": "agora sao 14:30"},
+        ]
+        saida = sanitize_request({"model": "m", "messages": mensagens})["messages"]
+        roles = [m["role"] for m in saida]
+        self.assertNotIn("tool", roles)
+        self.assertEqual(len(saida), 3)
+
 
 if __name__ == "__main__":
     unittest.main()
