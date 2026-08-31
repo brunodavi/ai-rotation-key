@@ -1,5 +1,6 @@
 import contextlib
 import io
+import logging
 import os
 import pathlib
 import unittest
@@ -8,11 +9,17 @@ from unittest import mock
 from collections import namedtuple
 
 from src.cli import _build_parser, main
+from tests._helpers import make_log_capture
 
 SyncResultFake = namedtuple("SyncResultFake", "relatorios salvo houve_erro path")
 
 
 class CliRoutingTests(unittest.TestCase):
+    def setUp(self):
+        self._handler, self._restore_log, self._log_text = make_log_capture()
+
+    def tearDown(self):
+        self._restore_log()
     def test_subcomandos_disparam_handlers_corretos(self):
         casos = [
             (["init"], "src.commands.init", "init_config"),
@@ -49,12 +56,11 @@ class CliRoutingTests(unittest.TestCase):
             True,
             pathlib.Path("/tmp/opencode"),
         )
-        saida = io.StringIO()
-        with mock.patch("src.commands.sync_models.sync_models", return_value=fake), contextlib.redirect_stdout(saida):
+        with mock.patch("src.commands.sync_models.sync_models", return_value=fake):
             with self.assertRaises(SystemExit) as ctx:
                 main(["sync-models"])
         self.assertEqual(ctx.exception.code, 1)
-        texto = saida.getvalue()
+        texto = self._log_text()
         self.assertIn("gemini: +2 adicionados", texto)
         self.assertIn("31 filtrados por filter-models", texto)
         self.assertIn("2 já existiam", texto)
@@ -63,13 +69,11 @@ class CliRoutingTests(unittest.TestCase):
         self.assertIn(str(fake.path), texto)
 
     def test_sync_models_provider_desconhecido_sai_com_mensagem(self):
-        saida = io.StringIO()
         with mock.patch("src.commands.sync_models.sync_models", side_effect=ValueError("provider 'x' não está no config — opções: gemini")):
-            with contextlib.redirect_stdout(saida):
-                with self.assertRaises(SystemExit) as ctx:
-                    main(["sync-models", "x"])
+            with self.assertRaises(SystemExit) as ctx:
+                main(["sync-models", "x"])
         self.assertEqual(ctx.exception.code, 1)
-        self.assertIn("não está no config", saida.getvalue())
+        self.assertIn("não está no config", self._log_text())
 
     def test_retorno_do_handler_propagado(self):
         sentinela = object()
@@ -104,23 +108,27 @@ class CliRoutingTests(unittest.TestCase):
 
 
 class CliOutputTests(unittest.TestCase):
+    def setUp(self):
+        self._handler, self._restore_log, self._log_text = make_log_capture()
+
+    def tearDown(self):
+        self._restore_log()
+
     def test_init_criado_imprime_caminho(self):
         caminho = pathlib.Path("/tmp/fake") / "config.json"
         with mock.patch("src.commands.init.init_config", return_value=(caminho, True)):
-            saida = io.StringIO()
-            with contextlib.redirect_stdout(saida):
-                main(["init"])
-            self.assertIn(str(caminho), saida.getvalue())
-            self.assertIn("criado", saida.getvalue())
+            main(["init"])
+            texto = self._log_text()
+            self.assertIn(str(caminho), texto)
+            self.assertIn("criado", texto)
 
     def test_init_ja_existente_avisa_sem_sobrescrever(self):
         caminho = pathlib.Path("/tmp/fake") / "config.json"
         with mock.patch("src.commands.init.init_config", return_value=(caminho, False)):
-            saida = io.StringIO()
-            with contextlib.redirect_stdout(saida):
-                main(["init"])
-            self.assertIn("já existe", saida.getvalue())
-            self.assertIn("sem alterar", saida.getvalue())
+            main(["init"])
+            texto = self._log_text()
+            self.assertIn("já existe", texto)
+            self.assertIn("sem alterar", texto)
 
     def test_export_imprime_acao_realizada_e_caminho(self):
         caminho = pathlib.Path("/tmp/fake") / "opencode.json"
@@ -132,11 +140,10 @@ class CliOutputTests(unittest.TestCase):
         ):
             with self.subTest(acao=acao):
                 with mock.patch("src.commands.export.export_provider", return_value=(caminho, acao)):
-                    saida = io.StringIO()
-                    with contextlib.redirect_stdout(saida):
-                        main(["export"])
-                    self.assertIn(trecho, saida.getvalue())
-                    self.assertIn(str(caminho), saida.getvalue())
+                    main(["export"])
+                    texto = self._log_text()
+                    self.assertIn(trecho, texto)
+                    self.assertIn(str(caminho), texto)
 
 
 if __name__ == "__main__":

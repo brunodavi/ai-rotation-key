@@ -1,4 +1,8 @@
+import logging
+
 from src.utils.init_config import init_config
+
+_log = logging.getLogger("airkey")
 
 
 def run(args):
@@ -6,7 +10,7 @@ def run(args):
     if isinstance(resultado, tuple) and len(resultado) == 2:
         path, criado = resultado
         if criado:
-            print(f"config criado em {path}")
+            _log.info("config criado em %s", path)
         else:
-            print(f"config já existe em {path} — sem alterar")
+            _log.info("config já existe em %s — sem alterar", path)
     return resultado

@@ -1,6 +1,7 @@
 import contextlib
 import io
 import json
+import logging
 import os
 import pathlib
 import shutil
@@ -8,6 +9,7 @@ import unittest
 from unittest import mock
 
 from src.utils.export_provider import PROVIDER_ID, export_provider
+from tests._helpers import make_log_capture
 
 
 class ExportProviderTests(unittest.TestCase):
@@ -21,9 +23,11 @@ class ExportProviderTests(unittest.TestCase):
         patcher = mock.patch.dict(os.environ, {"HOME": str(self.home)})
         patcher.start()
         self.addCleanup(patcher.stop)
+        self._handler, self._restore_log, self._log_text = make_log_capture()
 
     def tearDown(self):
         shutil.rmtree(self.scratch, ignore_errors=True)
+        self._restore_log()
 
     def _nosso_config(self, providers, port=8792):
         path = self.home / ".config" / "ai-rotation-key" / "config.json"
@@ -92,12 +96,10 @@ class ExportProviderTests(unittest.TestCase):
             },
             port=9000,
         )
-        saida = io.StringIO()
-        with contextlib.redirect_stdout(saida):
-            _, acao = export_provider()
+        _, acao = export_provider()
         self.assertEqual(acao, "criado")
-        texto = saida.getvalue()
-        self.assertIn("aviso", texto.lower())
+        texto = self._log_text()
+        self.assertIn("se repete", texto.lower())
         self.assertIn("openrouter/tool-x", texto)
         self.assertIn("openrouter/vendor-a/tool-x", texto)
         self.assertIn("openrouter/vendor-b/tool-x", texto)
@@ -109,10 +111,10 @@ class ExportProviderTests(unittest.TestCase):
             },
             port=9000,
         )
-        saida = io.StringIO()
-        with contextlib.redirect_stdout(saida):
-            export_provider()
-        self.assertNotIn("aviso", saida.getvalue().lower())
+        export_provider()
+        self.assertNotIn("aviso", self._log_text().lower())
+        export_provider()
+        self.assertNotIn("aviso", self._log_text().lower())
 
     def test_adiciona_quando_config_existe_sem_nosso_provider(self):
         self._nosso_config({"gemini": {"api-keys": ["sk-a"], "models": ["m"]}})

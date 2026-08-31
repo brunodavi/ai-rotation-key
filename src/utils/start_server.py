@@ -1,4 +1,6 @@
 import json
+import logging
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib import error, request
 
@@ -7,15 +9,22 @@ from src.utils.config_paths import DEFAULT_PORT
 from src.utils.find_free_port import find_free_port
 from src.utils.forward_request import forward_request
 from src.utils.load_config import load_config
+from src.utils.logging_setup import setup_logging
 from src.utils.round_robin import RoundRobin
 from src.utils.sanitize_request import sanitize_request
 from src.utils.sanitize_response import sanitize_response_payload, sanitize_sse_line
 from src.utils.signature_cache import SignatureCache
 from src.utils.user_agent import USER_AGENT
 
+_log = logging.getLogger("airkey")
+
 _CHAT_ROTAS = ("/chat/completions", "/v1/chat/completions")
 _HEADERS_HOP_BY_HOP = ("content-length", "transfer-encoding", "content-encoding")
 _SUFIXO_CHAT = "/chat/completions"
+
+
+def _elapsed_ms(t0):
+    return round((time.time() - t0) * 1000)
 
 
 class ProxyHandler(BaseHTTPRequestHandler):
@@ -46,14 +55,17 @@ class ProxyHandler(BaseHTTPRequestHandler):
         self._enviar_json(404, {"error": {"message": f"rota desconhecida: {self.path}"}})
 
     def do_POST(self):
+        t0 = time.time()
         length = int(self.headers.get("Content-Length", 0))
         bruto = self.rfile.read(length) if length > 0 else b""
         if self.path.rstrip("/") not in _CHAT_ROTAS:
+            _log.info("POST %s status=404 duration=%dms", self.path, _elapsed_ms(t0))
             self._enviar_json(404, {"error": {"message": f"rota desconhecida: {self.path}"}})
             return
         try:
             dados = json.loads(bruto.decode("utf-8")) if bruto else {}
         except json.JSONDecodeError as exc:
+            _log.info("POST %s status=400 duration=%dms", self.path, _elapsed_ms(t0))
             self._enviar_json(400, {"error": {"message": f"JSON inválido: {exc}"}})
             return
 
@@ -62,6 +74,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
         try:
             provider, modelo_bare = self.server.resolver(modelo)
         except ValueError as exc:
+            _log.info("POST %s model=%s status=400 duration=%dms", self.path, modelo, _elapsed_ms(t0))
             self._enviar_json(400, {"error": {"message": str(exc)}})
             return
         dados["model"] = modelo_bare
@@ -73,9 +86,10 @@ class ProxyHandler(BaseHTTPRequestHandler):
             template_endpoint = cfg.get("chat-endpoint", _SUFIXO_CHAT)
         url = cfg["base-url"].rstrip("/") + template_endpoint.replace("{model}", modelo_bare)
         payload = json.dumps(dados).encode("utf-8")
+        prefixed_model = f"{provider}/{modelo_bare}"
 
         if dados.get("stream"):
-            self._repassar_stream(provider, payload, url)
+            self._repassar_stream(provider, payload, url, prefixed_model=prefixed_model)
             return
         status, corpo, _ = forward_request(
             self.server.round_robin, provider, payload, url=url,
@@ -88,12 +102,19 @@ class ProxyHandler(BaseHTTPRequestHandler):
         if resposta is not None:
             self.server.signature_cache.collect(resposta)
             corpo = json.dumps(sanitize_response_payload(resposta)).encode("utf-8")
+        _log.info(
+            "POST %s model=%s provider=%s status=%d duration=%dms",
+            self.path, prefixed_model, provider, status, _elapsed_ms(t0),
+        )
         self._enviar_json(status, None, raw=corpo)
 
-    def _repassar_stream(self, provider, payload, url):
+    def _repassar_stream(self, provider, payload, url, prefixed_model=None):
+        t0 = time.time()
         rr = self.server.round_robin
         template = self.server.providers[provider].get("auth-header")
         res = None
+        path = getattr(self, "path", "?")
+        _log.info("POST %s model=%s provider=%s stream=start", path, prefixed_model, provider)
         for tentativa in range(rr.count(provider)):
             chave = rr.next(provider)
             nome_auth, valor_auth = montar_auth(template, chave)
@@ -114,14 +135,26 @@ class ProxyHandler(BaseHTTPRequestHandler):
                 corpo_erro = exc.read()
                 if exc.code == 429 and tentativa < rr.count(provider) - 1:
                     continue
+                _log.info(
+                    "POST %s model=%s provider=%s status=%d duration=%dms",
+                    path, prefixed_model, provider, exc.code, _elapsed_ms(t0),
+                )
                 self._enviar_json(exc.code, None, raw=corpo_erro)
                 return
             except (error.URLError, OSError, __import__("http").client.HTTPException) as exc:
                 if tentativa >= rr.count(provider) - 1:
+                    _log.info(
+                        "POST %s model=%s provider=%s status=502 duration=%dms",
+                        path, prefixed_model, provider, _elapsed_ms(t0),
+                    )
                     self._enviar_json(502, {"error": {"message": f"conexão falhou: {exc}"}})
                     return
                 continue
         if res is None:
+            _log.info(
+                "POST %s model=%s provider=%s status=502 duration=%dms",
+                path, prefixed_model, provider, _elapsed_ms(t0),
+            )
             return
         try:
             self.send_response(200)
@@ -135,8 +168,15 @@ class ProxyHandler(BaseHTTPRequestHandler):
             for linha in res:
                 self.wfile.write(sanitize_sse_line(linha, collector=coletor))
                 self.wfile.flush()
+            _log.info(
+                "POST %s model=%s provider=%s stream=end duration=%dms",
+                path, prefixed_model, provider, _elapsed_ms(t0),
+            )
         except (ConnectionResetError, BrokenPipeError, OSError):
-            return
+            _log.info(
+                "POST %s model=%s provider=%s stream=end duration=%dms",
+                path, prefixed_model, provider, _elapsed_ms(t0),
+            )
         finally:
             res.close()
 
@@ -191,18 +231,18 @@ def build_server(providers, port=0, host="127.0.0.1"):
     return server
 
 
-def start_server():
+def start_server(verbose=0):
+    setup_logging(verbose=verbose)
     config = load_config()
     porta_config = config.get("port", DEFAULT_PORT)
     porta = find_free_port(porta_config) if porta_config != 0 else 0
     server = build_server(providers=config["providers"], port=porta)
     if porta != porta_config:
-        print(f"[aviso] porta {porta_config} ocupada; usando {porta}", flush=True)
-    print(
-        f"ai-rotation-key em http://127.0.0.1:{server.server_address[1]}/v1 (apenas localhost)",
-        flush=True,
+        _log.warning("porta %s ocupada; usando %s", porta_config, porta)
+    _log.info(
+        "ai-rotation-key em http://127.0.0.1:%s/v1", server.server_address[1],
     )
-    print(f"providers: {', '.join(server.providers)}", flush=True)
+    _log.info("providers: %s", ", ".join(server.providers))
     try:
         server.serve_forever()
     except KeyboardInterrupt:

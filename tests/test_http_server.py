@@ -1,11 +1,13 @@
 import io
 import json
+import logging
 import threading
 import unittest
 import urllib.error
 import urllib.request
 
 from src.utils.start_server import ProxyHandler, build_server
+from tests._helpers import make_log_capture
 from tests.mock_server import MockServer
 
 
@@ -437,6 +439,124 @@ class HttpServerTests(unittest.TestCase):
         enviado = json.loads(self.upstream_a.requests[-1]["body"])
         tool_call = enviado["messages"][1]["tool_calls"][0]
         self.assertEqual(tool_call["extra_content"], {"google": {"thought_signature": "SIG-S"}})
+
+
+class LoggingTests(unittest.TestCase):
+    def setUp(self):
+        self._handler, self._restore_log, self._log_text = make_log_capture()
+
+        self.upstream_a = MockServer()
+        self.upstream_a.start()
+        self.providers = {
+            "gemini": {
+                "base-url": self.upstream_a.url("/v1"),
+                "api-keys": ["sk-a1", "sk-a2"],
+                "models": ["gemini-3.5-flash"],
+            },
+        }
+        self.server = build_server(providers=self.providers, port=0)
+        self.server_thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.server_thread.start()
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+        self.server_thread.join(timeout=5)
+        self.upstream_a.reset()
+        self.upstream_a.stop()
+        self._restore_log()
+
+    @property
+    def base(self):
+        return f"http://127.0.0.1:{self.server.server_address[1]}"
+
+    def _post(self, path, payload):
+        req = urllib.request.Request(
+            self.base + path,
+            data=json.dumps(payload).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=15) as res:
+                return res.status, res.read()
+        except urllib.error.HTTPError as e:
+            return e.code, e.read()
+
+    def test_log_post_success(self):
+        self.upstream_a.register("POST", "/v1/chat/completions", status=200, body={"ok": True})
+        self._post(
+            "/v1/chat/completions",
+            {"model": "gemini-3.5-flash", "messages": [{"role": "user", "content": "oi"}]},
+        )
+        output = self._log_text()
+        self.assertIn("POST", output)
+        self.assertIn("/v1/chat/completions", output)
+        self.assertIn("model=gemini/gemini-3.5-flash", output)
+        self.assertIn("provider=gemini", output)
+        self.assertIn("status=200", output)
+        self.assertIn("duration=", output)
+
+    def test_log_post_stream(self):
+        chunks = [b'data: {"choices":[{"delta":{"content":"1"}}]}\n\n', b"data: [DONE]\n\n"]
+        self.upstream_a.register_stream("POST", "/v1/chat/completions", chunks)
+        self._post(
+            "/v1/chat/completions",
+            {"model": "gemini-3.5-flash", "messages": [{"role": "user", "content": "oi"}],
+             "stream": True},
+        )
+        output = self._log_text()
+        self.assertIn("stream=start", output)
+        self.assertIn("stream=end", output)
+
+    def test_log_unknown_route(self):
+        self._post("/unknown", {"x": 1})
+        output = self._log_text()
+        self.assertIn("POST", output)
+        self.assertIn("/unknown", output)
+        self.assertIn("status=404", output)
+
+    def test_log_invalid_json(self):
+        req = urllib.request.Request(
+            self.base + "/v1/chat/completions",
+            data=b"not json",
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            urllib.request.urlopen(req, timeout=15)
+        except urllib.error.HTTPError:
+            pass
+        output = self._log_text()
+        self.assertIn("POST", output)
+        self.assertIn("status=400", output)
+
+    def test_log_no_keys_in_output(self):
+        self.upstream_a.register("POST", "/v1/chat/completions", status=200, body={"ok": True})
+        self._post(
+            "/v1/chat/completions",
+            {"model": "gemini-3.5-flash", "messages": [{"role": "user", "content": "oi"}]},
+        )
+        output = self._log_text()
+        self.assertNotIn("sk-a1", output)
+        self.assertNotIn("sk-a2", output)
+
+    def test_log_stream_failure(self):
+        import json as _json
+        body_429 = _json.dumps({"error": "rate limited"}).encode()
+        self.upstream_a.register(
+            "POST", "/v1/chat/completions", status=429, body=body_429,
+        )
+        self.upstream_a.register(
+            "POST", "/v1/chat/completions", status=429, body=body_429,
+        )
+        self._post(
+            "/v1/chat/completions",
+            {"model": "gemini-3.5-flash", "messages": [{"role": "user", "content": "oi"}],
+             "stream": True},
+        )
+        output = self._log_text()
+        self.assertIn("status=429", output)
 
 
 if __name__ == "__main__":

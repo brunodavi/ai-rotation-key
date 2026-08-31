@@ -1,8 +1,11 @@
 import json
+import logging
 from pathlib import Path
 
 from src.utils.config_paths import opencode_config_path
 from src.utils.load_config import load_config
+
+_log = logging.getLogger("airkey")
 
 PROVIDER_ID = "ai-rotation-key"
 OPENCODE_SCHEMA = "https://opencode.ai/config.json"
@@ -38,9 +41,10 @@ def _avisar_nomes_duplicados(bloco):
         por_nome.setdefault(info["name"], []).append(key)
     for nome, keys in por_nome.items():
         if len(keys) > 1:
-            print(
-                f"[aviso] nome de exibição '{nome}' se repete em {len(keys)} modelos: "
-                f"{', '.join(sorted(keys))} — use o id completo na hora de escolher"
+            _log.warning(
+                "nome de exibição '%s' se repete em %d modelos: "
+                "%s — use o id completo na hora de escolher",
+                nome, len(keys), ", ".join(sorted(keys)),
             )
 
 

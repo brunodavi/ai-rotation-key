@@ -75,6 +75,21 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
 - Sempre seguir TDD à risca: validação do comportamento real → RED (erro na asserção, stub mínimo necessário) → GREEN → REFACTOR
 - Projeto também usado como harness para validar comportamento do opencode
 
+# Debug (tmux + pdb)
+- Disponível no Termux: `tmux` para sessões background + `breakpoint()` do Python (pdb)
+- **Estratégia para testes falhando**: rodar apenas o teste que falha com `breakpoint()` relevantes
+  no código-fonte e no teste se necessário — não rodar a suíte inteira para depurar
+- **Setup rápido**:
+  1. Adicionar `breakpoint()` no ponto desejado do código
+  2. Criar sessão: `tmux new-session -d -s debug "python -m unittest tests.test_<modulo>.<Classe>.<metodo> -v"`
+  3. Capturar tela: `tmux capture-pane -t debug -p`
+  4. Enviar comandos: `tmux send-keys -t debug "<comando_pdb>" Enter`
+  5. Capturar resultado: `tmux capture-pane -t debug -p`
+  6. Matar sessão: `tmux kill-session -t debug`
+- **Comandos pdb úteis**: `p <var>` (imprimir), `n` (next), `s` (step), `c` (continue), `l` (list), `w` (where), `q` (quit)
+- **Cuidado**: script deve ter `input()` ou loop infinito antes do fim para a sessão não encerrar
+  sozinha; senão, `tmux capture-pane` pode ver "no server running" porque a sessão já morreu
+
 # Modelos/Gateways
 - [x] Gemini
 - [x] OpenRouter

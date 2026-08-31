@@ -29,6 +29,9 @@ SEM_FASE = {"docs", "chore"}
 SEGREDOS = re.compile(
     r"(sk-or-v1-|sk-proj-|sk-ant-api|AIza)[A-Za-z0-9_\-]{10,}|sk-[A-Za-z0-9]{32,}"
 )
+CODIGO_DEBUG = re.compile(
+    r"(?<!\w)(print\s*\(|breakpoint\s*\(\s*\)|input\s*\()"
+)
 SEMVER_TAG = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
 
 
@@ -192,6 +195,17 @@ def falhas_de_staged(caminhos):
             falhas.append(
                 f"possível segredo em {caminho} (padrão {achado.group(0)[:14]}...)"
             )
+        if (
+            caminho.startswith("src/")
+            and not caminho.startswith("tests/")
+            and not caminho.startswith("scripts/hooks/")
+        ):
+            achado_debug = CODIGO_DEBUG.search(conteudo)
+            if achado_debug:
+                falhas.append(
+                    f"código de debug em {caminho}: {achado_debug.group(0).strip()} — "
+                    f"use logging/print() apenas em hooks"
+                )
     return falhas
 
 

@@ -1,33 +1,36 @@
+import logging
+
 from src.utils.update_models import sync_models
+
+_log = logging.getLogger("airkey")
 
 
 def _imprimir_relatorio(resultado):
     for nome, rel in resultado.relatorios.items():
         if "erro" in rel:
             if rel.get("status"):
-                print(f"{nome}: erro HTTP {rel['status']}: {rel['erro']}")
+                _log.error("%s: erro HTTP %s: %s", nome, rel["status"], rel["erro"])
             else:
-                print(f"{nome}: erro de conexão: {rel['erro']}")
+                _log.error("%s: erro de conexão: %s", nome, rel["erro"])
             continue
         if rel["adicionados"]:
-            print(
-                f"{nome}: +{len(rel['adicionados'])} adicionados · "
-                f"{rel['excluidos']} filtrados por filter-models · "
-                f"{rel['existentes']} já existiam"
+            _log.info(
+                "%s: +%d adicionados · %d filtrados por filter-models · %d já existiam",
+                nome, len(rel["adicionados"]), rel["excluidos"], rel["existentes"],
             )
         elif rel["excluidos"]:
-            print(f"{nome}: inalterado ({rel['excluidos']} filtrados por filter-models)")
+            _log.info("%s: inalterado (%d filtrados por filter-models)", nome, rel["excluidos"])
         else:
-            print(f"{nome}: inalterado — nada a adicionar")
+            _log.info("%s: inalterado — nada a adicionar", nome)
     if resultado.salvo:
-        print(f"config atualizado em {resultado.path}")
+        _log.info("config atualizado em %s", resultado.path)
 
 
 def run(args):
     try:
         resultado = sync_models(apenas=args.provider)
     except ValueError as exc:
-        print(str(exc))
+        _log.error(str(exc))
         raise SystemExit(1) from None
     _imprimir_relatorio(resultado)
     if resultado.houve_erro:
