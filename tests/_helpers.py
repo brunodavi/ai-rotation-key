@@ -12,8 +12,8 @@ class _ListWriter:
         pass
 
 
-def make_log_capture():
-    """Retorna (handler, list, text_fn) para capturar output do logger 'airkey'."""
+def make_log_capture(level=logging.DEBUG):
+    """Retorna (handler, restore_fn, text_fn) para capturar output do logger 'airkey'."""
     root = logging.getLogger("airkey")
     original_level = root.level
     original_handlers = root.handlers[:]
@@ -21,7 +21,7 @@ def make_log_capture():
     handler = logging.StreamHandler(_ListWriter(log_output))
     handler.setFormatter(logging.Formatter("%(message)s"))
     root.addHandler(handler)
-    root.setLevel(logging.DEBUG)
+    root.setLevel(level)
 
     def restore():
         root.setLevel(original_level)

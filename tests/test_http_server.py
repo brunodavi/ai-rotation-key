@@ -450,7 +450,7 @@ class LoggingTests(unittest.TestCase):
         self.providers = {
             "gemini": {
                 "base-url": self.upstream_a.url("/v1"),
-                "api-keys": ["sk-a1", "sk-a2"],
+                "api-keys": ["sk-test-key-0111", "sk-test-key-0222"],
                 "models": ["gemini-3.5-flash"],
             },
         }
@@ -532,14 +532,17 @@ class LoggingTests(unittest.TestCase):
         self.assertIn("status=400", output)
 
     def test_log_no_keys_in_output(self):
+        import logging
+        self._restore_log()
+        self._handler, self._restore_log, self._log_text = make_log_capture(level=logging.INFO)
         self.upstream_a.register("POST", "/v1/chat/completions", status=200, body={"ok": True})
         self._post(
             "/v1/chat/completions",
             {"model": "gemini-3.5-flash", "messages": [{"role": "user", "content": "oi"}]},
         )
         output = self._log_text()
-        self.assertNotIn("sk-a1", output)
-        self.assertNotIn("sk-a2", output)
+        self.assertNotIn("sk-test-key-0111", output)
+        self.assertNotIn("sk-test-key-0222", output)
 
     def test_log_stream_failure(self):
         import json as _json
@@ -593,6 +596,30 @@ class LoggingTests(unittest.TestCase):
         )
         output = self._log_text()
         self.assertIn("key=", output)
+
+    def test_log_v_shows_masked_key(self):
+        from src.utils.logging_setup import KEYDEBUG
+        self._restore_log()
+        self._handler, self._restore_log, self._log_text = make_log_capture(level=KEYDEBUG)
+        self.upstream_a.register("POST", "/v1/chat/completions", status=200, body={"ok": True})
+        self._post(
+            "/v1/chat/completions",
+            {"model": "gemini-3.5-flash", "messages": [{"role": "user", "content": "oi"}]},
+        )
+        output = self._log_text()
+        self.assertIn("sk-t...0111", output)
+
+    def test_log_vvv_shows_full_key(self):
+        from src.utils.logging_setup import KEYMASKED
+        self._restore_log()
+        self._handler, self._restore_log, self._log_text = make_log_capture(level=KEYMASKED)
+        self.upstream_a.register("POST", "/v1/chat/completions", status=200, body={"ok": True})
+        self._post(
+            "/v1/chat/completions",
+            {"model": "gemini-3.5-flash", "messages": [{"role": "user", "content": "oi"}]},
+        )
+        output = self._log_text()
+        self.assertIn("sk-test-key-0111", output)
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@ import logging
 import sys
 import unittest
 
-from src.utils.logging_setup import setup_logging
+from src.utils.logging_setup import KEYDEBUG, KEYFULL, KEYMASKED, setup_logging
 
 
 class SetupLoggingTests(unittest.TestCase):
@@ -26,6 +26,14 @@ class SetupLoggingTests(unittest.TestCase):
     def test_setup_logging_verbose_1_enables_debug(self):
         setup_logging(verbose=1)
         self.assertTrue(self.root.isEnabledFor(logging.DEBUG))
+
+    def test_setup_logging_verbose_2_enables_keydebug(self):
+        setup_logging(verbose=2)
+        self.assertTrue(self.root.isEnabledFor(KEYDEBUG))
+
+    def test_setup_logging_verbose_3_enables_keyfull(self):
+        setup_logging(verbose=3)
+        self.assertTrue(self.root.isEnabledFor(KEYFULL))
 
     def test_setup_logging_handler_writes_to_stdout(self):
         setup_logging()

@@ -4,7 +4,7 @@ import logging
 from urllib import error, request
 
 from src.utils.auth_header import PADRAO as AUTH_PADRAO, montar_auth
-from src.utils.key_mask import mask_key
+from src.utils.key_mask import key_full, key_index, key_masked
 from src.utils.user_agent import USER_AGENT
 
 _log = logging.getLogger("airkey")
@@ -19,7 +19,9 @@ def forward_request(round_robin, model, payload, url=DEFAULT_UPSTREAM, timeout=1
     status, body, headers = _falha_conexao("upstream não alcançado")
     for _ in range(round_robin.count(model)):
         chave = round_robin.next(model)
-        _log.debug("key=%s tentativa=%d/%d", mask_key(chave), _ + 1, round_robin.count(model))
+        _log.debug("key=%s tentativa=%d/%d", key_index(chave), _ + 1, round_robin.count(model))
+        _log.keydebug("key=%s tentativa=%d/%d", key_masked(chave), _ + 1, round_robin.count(model))
+        _log.keymasked("key=%s tentativa=%d/%d", key_full(chave), _ + 1, round_robin.count(model))
         nome_auth, valor_auth = montar_auth(auth_header, chave)
         req = request.Request(
             url,
