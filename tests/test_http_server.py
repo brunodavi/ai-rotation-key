@@ -561,55 +561,21 @@ class LoggingTests(unittest.TestCase):
         output = self._log_text()
         self.assertIn("status=429", output)
 
-    def test_log_debug_shows_key_for_nao_stream(self):
-        self.upstream_a.register("POST", "/v1/chat/completions", status=200, body={"ok": True})
-        self._post(
-            "/v1/chat/completions",
-            {"model": "gemini-3.5-flash", "messages": [{"role": "user", "content": "oi"}]},
-        )
-        output = self._log_text()
-        self.assertIn("key=", output)
-
-    def test_log_debug_shows_key_for_stream(self):
-        chunks = [
-            b'data: {"choices":[{"delta":{"content":"ok"}}]}\n\n',
-            b"data: [DONE]\n\n",
-        ]
-        self.upstream_a.register_stream(
-            "POST", "/v1/chat/completions", chunks=chunks,
-        )
-        self._post(
-            "/v1/chat/completions",
-            {"model": "gemini-3.5-flash", "messages": [{"role": "user", "content": "oi"}],
-             "stream": True},
-        )
-        output = self._log_text()
-        self.assertIn("key=", output)
-
-    def test_log_debug_shows_retry_key_on_429(self):
-        body_429 = json.dumps({"error": "rate limited"}).encode()
-        self.upstream_a.register("POST", "/v1/chat/completions", status=429, body=body_429)
-        self.upstream_a.register("POST", "/v1/chat/completions", status=200, body={"ok": True})
-        self._post(
-            "/v1/chat/completions",
-            {"model": "gemini-3.5-flash", "messages": [{"role": "user", "content": "oi"}]},
-        )
-        output = self._log_text()
-        self.assertIn("key=", output)
-
-    def test_log_v_shows_masked_key(self):
-        from src.utils.logging_setup import KEYDEBUG
+    def test_log_v_shows_position_not_key(self):
+        """-v (DEBUG): mostra key=1/2, NAO mostra nenhum valor de chave."""
         self._restore_log()
-        self._handler, self._restore_log, self._log_text = make_log_capture(level=KEYDEBUG)
+        self._handler, self._restore_log, self._log_text = make_log_capture(level=logging.DEBUG)
         self.upstream_a.register("POST", "/v1/chat/completions", status=200, body={"ok": True})
         self._post(
             "/v1/chat/completions",
             {"model": "gemini-3.5-flash", "messages": [{"role": "user", "content": "oi"}]},
         )
         output = self._log_text()
-        self.assertIn("sk-t...0111", output)
+        self.assertIn("key=1/2", output)
+        self.assertNotIn("sk-", output)
 
-    def test_log_vvv_shows_full_key(self):
+    def test_log_vv_shows_masked_not_full(self):
+        """-vv (KEYMASKED): mostra key=sk-t...0111, NAO mostra chave completa."""
         from src.utils.logging_setup import KEYMASKED
         self._restore_log()
         self._handler, self._restore_log, self._log_text = make_log_capture(level=KEYMASKED)
@@ -619,7 +585,55 @@ class LoggingTests(unittest.TestCase):
             {"model": "gemini-3.5-flash", "messages": [{"role": "user", "content": "oi"}]},
         )
         output = self._log_text()
-        self.assertIn("sk-test-key-0111", output)
+        self.assertIn("key=sk-t...0111", output)
+        self.assertNotIn("sk-test-key-0111", output)
+
+    def test_log_vvv_shows_full_key(self):
+        """-vvv (KEYFULL): mostra key=sk-test-key-0111 (chave completa)."""
+        from src.utils.logging_setup import KEYFULL
+        self._restore_log()
+        self._handler, self._restore_log, self._log_text = make_log_capture(level=KEYFULL)
+        self.upstream_a.register("POST", "/v1/chat/completions", status=200, body={"ok": True})
+        self._post(
+            "/v1/chat/completions",
+            {"model": "gemini-3.5-flash", "messages": [{"role": "user", "content": "oi"}]},
+        )
+        output = self._log_text()
+        self.assertIn("key=sk-test-key-0111", output)
+
+    def test_log_v_shows_retry_on_429(self):
+        """-v (DEBUG): mostra retry=1/2 e retry=2/2 quando segunda chave tem sucesso."""
+        self._restore_log()
+        self._handler, self._restore_log, self._log_text = make_log_capture(level=logging.DEBUG)
+        body_429 = json.dumps({"error": "rate limited"}).encode()
+        self.upstream_a.register("POST", "/v1/chat/completions", status=429, body=body_429)
+        self.upstream_a.register("POST", "/v1/chat/completions", status=200, body={"ok": True})
+        self._post(
+            "/v1/chat/completions",
+            {"model": "gemini-3.5-flash", "messages": [{"role": "user", "content": "oi"}]},
+        )
+        output = self._log_text()
+        self.assertIn("retry=1/2", output)
+        self.assertIn("retry=2/2", output)
+        self.assertNotIn("sk-", output)
+
+    def test_log_v_shows_stream_key_position(self):
+        """-v (DEBUG): stream mostra key=1/2, sem valor de chave."""
+        self._restore_log()
+        self._handler, self._restore_log, self._log_text = make_log_capture(level=logging.DEBUG)
+        chunks = [
+            b'data: {"choices":[{"delta":{"content":"ok"}}]}\n\n',
+            b"data: [DONE]\n\n",
+        ]
+        self.upstream_a.register_stream("POST", "/v1/chat/completions", chunks=chunks)
+        self._post(
+            "/v1/chat/completions",
+            {"model": "gemini-3.5-flash", "messages": [{"role": "user", "content": "oi"}],
+             "stream": True},
+        )
+        output = self._log_text()
+        self.assertIn("key=1/2", output)
+        self.assertNotIn("sk-", output)
 
 
 if __name__ == "__main__":

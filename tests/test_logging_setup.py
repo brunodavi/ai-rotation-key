@@ -2,7 +2,7 @@ import logging
 import sys
 import unittest
 
-from src.utils.logging_setup import KEYDEBUG, KEYFULL, KEYMASKED, setup_logging
+from src.utils.logging_setup import KEYFULL, KEYMASKED, setup_logging
 
 
 class SetupLoggingTests(unittest.TestCase):
@@ -15,33 +15,37 @@ class SetupLoggingTests(unittest.TestCase):
         self.root.setLevel(self.original_level)
         self.root.handlers = self.original_handlers
 
-    def test_setup_logging_default_level_is_info(self):
-        setup_logging()
+    def test_verbose_0_sets_info_level(self):
+        setup_logging(verbose=0)
         self.assertEqual(self.root.level, logging.INFO)
 
-    def test_setup_logging_verbose_0_means_no_debug(self):
+    def test_verbose_0_hides_debug(self):
         setup_logging(verbose=0)
         self.assertFalse(self.root.isEnabledFor(logging.DEBUG))
 
-    def test_setup_logging_verbose_1_enables_debug(self):
+    def test_verbose_1_sets_debug_level(self):
+        setup_logging(verbose=1)
+        self.assertEqual(self.root.level, logging.DEBUG)
+
+    def test_verbose_1_enables_debug(self):
         setup_logging(verbose=1)
         self.assertTrue(self.root.isEnabledFor(logging.DEBUG))
 
-    def test_setup_logging_verbose_2_enables_keydebug(self):
+    def test_verbose_2_sets_keymasked_level(self):
         setup_logging(verbose=2)
-        self.assertTrue(self.root.isEnabledFor(KEYDEBUG))
+        self.assertEqual(self.root.level, KEYMASKED)
 
-    def test_setup_logging_verbose_3_enables_keyfull(self):
+    def test_verbose_3_sets_keyfull_level(self):
         setup_logging(verbose=3)
-        self.assertTrue(self.root.isEnabledFor(KEYFULL))
+        self.assertEqual(self.root.level, KEYFULL)
 
-    def test_setup_logging_handler_writes_to_stdout(self):
+    def test_handler_writes_to_stdout(self):
         setup_logging()
         handler = self.root.handlers[-1]
         self.assertIsInstance(handler, logging.StreamHandler)
         self.assertIs(handler.stream, sys.stdout)
 
-    def test_setup_logging_does_not_add_duplicate_handlers(self):
+    def test_does_not_add_duplicate_handlers(self):
         initial = len(self.root.handlers)
         setup_logging()
         setup_logging()

@@ -1,33 +1,11 @@
 import logging
 import sys
 
-KEYDEBUG = 9
-KEYMASKED = 8
-KEYFULL = 7
+KEYMASKED = 12
+KEYFULL = 14
 
-logging.addLevelName(KEYDEBUG, "KEYDEBUG")
 logging.addLevelName(KEYMASKED, "KEYMASKED")
 logging.addLevelName(KEYFULL, "KEYFULL")
-
-
-def _keydebug(self, msg, *args, **kwargs):
-    if self.isEnabledFor(KEYDEBUG):
-        self._log(KEYDEBUG, msg, args, **kwargs)
-
-
-def _keymasked(self, msg, *args, **kwargs):
-    if self.isEnabledFor(KEYMASKED):
-        self._log(KEYMASKED, msg, args, **kwargs)
-
-
-def _keyfull(self, msg, *args, **kwargs):
-    if self.isEnabledFor(KEYFULL):
-        self._log(KEYFULL, msg, args, **kwargs)
-
-
-logging.Logger.keydebug = _keydebug
-logging.Logger.keymasked = _keymasked
-logging.Logger.keyfull = _keyfull
 
 
 def setup_logging(verbose=0):
@@ -36,7 +14,7 @@ def setup_logging(verbose=0):
     elif verbose == 1:
         level = logging.DEBUG
     elif verbose == 2:
-        level = KEYDEBUG
+        level = KEYMASKED
     else:
         level = KEYFULL
     root = logging.getLogger("airkey")
