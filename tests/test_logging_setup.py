@@ -15,9 +15,9 @@ class SetupLoggingTests(unittest.TestCase):
         self.root.setLevel(self.original_level)
         self.root.handlers = self.original_handlers
 
-    def test_setup_logging_default_level_is_warning(self):
+    def test_setup_logging_default_level_is_info(self):
         setup_logging()
-        self.assertEqual(self.root.level, logging.WARNING)
+        self.assertEqual(self.root.level, logging.INFO)
 
     def test_setup_logging_verbose_0_means_no_debug(self):
         setup_logging(verbose=0)

@@ -24,7 +24,6 @@ class CliRoutingTests(unittest.TestCase):
         casos = [
             (["init"], "src.commands.init", "init_config"),
             (["edit"], "src.commands.edit", "edit_config"),
-            (["start"], "src.commands.start", "start_server"),
             (["export"], "src.commands.export", "export_provider"),
         ]
         for argv, modulo, nome in casos:
@@ -32,6 +31,9 @@ class CliRoutingTests(unittest.TestCase):
                 with mock.patch(f"{modulo}.{nome}", return_value=None) as handler:
                     main(argv)
                 handler.assert_called_once_with()
+        with mock.patch("src.commands.start.start_server", return_value=None) as handler:
+            main(["start"])
+        handler.assert_called_once_with(verbose=0)
 
     def test_sync_models_sem_arg_passa_apenas_none(self):
         fake = SyncResultFake({}, False, False, pathlib.Path("/tmp/x"))

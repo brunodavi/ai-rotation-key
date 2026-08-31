@@ -20,7 +20,13 @@ def _build_parser():
         action="store_true",
         help="Abre o config do opencode (~/.config/opencode/config.json) em vez do nosso",
     )
-    sub.add_parser("start", help="Sobe o servidor local")
+    start = sub.add_parser("start", help="Sobe o servidor local")
+    start.add_argument(
+        "-v", "--verbose",
+        action="count",
+        default=0,
+        help="Nível de verbosidade (-v info, -vv debug)",
+    )
     sub.add_parser("export", help="Registra este servidor como provider no opencode")
     sync = sub.add_parser(
         "sync-models",

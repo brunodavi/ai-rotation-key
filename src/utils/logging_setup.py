@@ -3,7 +3,7 @@ import sys
 
 
 def setup_logging(verbose=0):
-    level = logging.WARNING if verbose == 0 else logging.DEBUG
+    level = logging.INFO if verbose == 0 else logging.DEBUG
     root = logging.getLogger("airkey")
     root.setLevel(level)
     if not any(isinstance(h, logging.StreamHandler) for h in root.handlers):
