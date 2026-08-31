@@ -558,6 +558,42 @@ class LoggingTests(unittest.TestCase):
         output = self._log_text()
         self.assertIn("status=429", output)
 
+    def test_log_debug_shows_key_for_nao_stream(self):
+        self.upstream_a.register("POST", "/v1/chat/completions", status=200, body={"ok": True})
+        self._post(
+            "/v1/chat/completions",
+            {"model": "gemini-3.5-flash", "messages": [{"role": "user", "content": "oi"}]},
+        )
+        output = self._log_text()
+        self.assertIn("key=", output)
+
+    def test_log_debug_shows_key_for_stream(self):
+        chunks = [
+            b'data: {"choices":[{"delta":{"content":"ok"}}]}\n\n',
+            b"data: [DONE]\n\n",
+        ]
+        self.upstream_a.register_stream(
+            "POST", "/v1/chat/completions", chunks=chunks,
+        )
+        self._post(
+            "/v1/chat/completions",
+            {"model": "gemini-3.5-flash", "messages": [{"role": "user", "content": "oi"}],
+             "stream": True},
+        )
+        output = self._log_text()
+        self.assertIn("key=", output)
+
+    def test_log_debug_shows_retry_key_on_429(self):
+        body_429 = json.dumps({"error": "rate limited"}).encode()
+        self.upstream_a.register("POST", "/v1/chat/completions", status=429, body=body_429)
+        self.upstream_a.register("POST", "/v1/chat/completions", status=200, body={"ok": True})
+        self._post(
+            "/v1/chat/completions",
+            {"model": "gemini-3.5-flash", "messages": [{"role": "user", "content": "oi"}]},
+        )
+        output = self._log_text()
+        self.assertIn("key=", output)
+
 
 if __name__ == "__main__":
     unittest.main()

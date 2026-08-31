@@ -1,9 +1,12 @@
 import http.client
 import json
+import logging
 from urllib import error, request
 
 from src.utils.auth_header import PADRAO as AUTH_PADRAO, montar_auth
 from src.utils.user_agent import USER_AGENT
+
+_log = logging.getLogger("airkey")
 
 _ROTACIONAVEIS = (error.URLError, OSError, http.client.HTTPException)
 
@@ -15,6 +18,7 @@ def forward_request(round_robin, model, payload, url=DEFAULT_UPSTREAM, timeout=1
     status, body, headers = _falha_conexao("upstream não alcançado")
     for _ in range(round_robin.count(model)):
         chave = round_robin.next(model)
+        _log.debug("key=%s tentativa=%d/%d", chave[:2] + "*" * (len(chave) - 4) + chave[-2:] if len(chave) > 4 else chave[:2] + "**", _ + 1, round_robin.count(model))
         nome_auth, valor_auth = montar_auth(auth_header, chave)
         req = request.Request(
             url,

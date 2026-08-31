@@ -23,6 +23,12 @@ _HEADERS_HOP_BY_HOP = ("content-length", "transfer-encoding", "content-encoding"
 _SUFIXO_CHAT = "/chat/completions"
 
 
+def _mask_key(key):
+    if len(key) <= 4:
+        return key[:2] + "**"
+    return key[:2] + "*" * (len(key) - 4) + key[-2:]
+
+
 def _elapsed_ms(t0):
     return round((time.time() - t0) * 1000)
 
@@ -117,6 +123,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
         _log.info("POST %s model=%s provider=%s stream=start", path, prefixed_model, provider)
         for tentativa in range(rr.count(provider)):
             chave = rr.next(provider)
+            _log.debug("key=%s tentativa=%d/%d", _mask_key(chave), tentativa + 1, rr.count(provider))
             nome_auth, valor_auth = montar_auth(template, chave)
             req = request.Request(
                 url,
