@@ -8,6 +8,7 @@ from src.utils.auth_header import montar_auth
 from src.utils.config_paths import DEFAULT_PORT
 from src.utils.find_free_port import find_free_port
 from src.utils.forward_request import forward_request
+from src.utils.key_mask import mask_key
 from src.utils.load_config import load_config
 from src.utils.logging_setup import setup_logging
 from src.utils.round_robin import RoundRobin
@@ -21,12 +22,6 @@ _log = logging.getLogger("airkey")
 _CHAT_ROTAS = ("/chat/completions", "/v1/chat/completions")
 _HEADERS_HOP_BY_HOP = ("content-length", "transfer-encoding", "content-encoding")
 _SUFIXO_CHAT = "/chat/completions"
-
-
-def _mask_key(key):
-    if len(key) <= 4:
-        return key[:2] + "**"
-    return key[:2] + "*" * (len(key) - 4) + key[-2:]
 
 
 def _elapsed_ms(t0):
@@ -123,7 +118,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
         _log.info("POST %s model=%s provider=%s stream=start", path, prefixed_model, provider)
         for tentativa in range(rr.count(provider)):
             chave = rr.next(provider)
-            _log.debug("key=%s tentativa=%d/%d", _mask_key(chave), tentativa + 1, rr.count(provider))
+            _log.debug("key=%s tentativa=%d/%d", mask_key(chave), tentativa + 1, rr.count(provider))
             nome_auth, valor_auth = montar_auth(template, chave)
             req = request.Request(
                 url,
