@@ -1,9 +1,6 @@
-from src.sanitizer import Sanitizer
+from src.providers.base import Provider
 
 
-BASE_URL = "https://opencode.ai/zen/v1"
-NAME = "opencode-zen"
-
-
-class OpenCodeZenSanitizer(Sanitizer):
-    """Herda o comportamento genérico; customizações do OpenCode Zen vêm aqui."""
+class OpenCodeZen(Provider):
+    name = "opencode-zen"
+    base_url = "https://opencode.ai/zen/v1"

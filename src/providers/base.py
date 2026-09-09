@@ -2,13 +2,23 @@ import copy
 import json
 
 
-class Sanitizer:
-    """Tradução de payload entre o formato OpenAI (recebido do opencode)
-    e o formato que a API do provider espera/retorna.
+class Provider:
+    """Base de um provider de API de IA.
 
-    Cada provider sobescreve o que precisar; o comportamento genérico
-    (whitelist de keys, mensagens, tools, SSE e extra_content) vive aqui.
+    Cada provider concreto sobescreve `name` e `base_url` (atributos de
+    classe) e, quando precisar, os métodos de sanitização de payload
+    (sanitize_request/sanitize_response/sanitize_sse_line) para traduzir
+    entre o formato OpenAI (recebido do opencode) e o que a API espera.
     """
+
+    name = ""
+    base_url = ""
+    _registry = {}
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if cls.name:
+            cls._registry[cls.name] = cls
 
     ALLOWED_KEYS = {
         "model",

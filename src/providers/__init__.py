@@ -1,27 +1,18 @@
 from src.providers import gemini, opencode_zen, openrouter
-from src.sanitizer import Sanitizer
+from src.providers.base import Provider
 
-_SANITIZERS = {
-    gemini.NAME: gemini.GeminiSanitizer,
-    openrouter.NAME: openrouter.OpenRouterSanitizer,
-    opencode_zen.NAME: opencode_zen.OpenCodeZenSanitizer,
-}
-
-_BASE_URLS = {
-    gemini.NAME: gemini.BASE_URL,
-    openrouter.NAME: openrouter.BASE_URL,
-    opencode_zen.NAME: opencode_zen.BASE_URL,
-}
+__all__ = ["gemini", "opencode_zen", "openrouter", "Provider"]
 
 
 def nomes_conhecidos():
-    return set(_SANITIZERS)
+    return set(Provider._registry)
 
 
 def default_base_url(nome):
-    return _BASE_URLS.get(nome)
+    cls = Provider._registry.get(nome)
+    return cls.base_url if cls else None
 
 
-def create_sanitizer(nome):
-    cls = _SANITIZERS.get(nome, Sanitizer)
+def create_provider(nome):
+    cls = Provider._registry.get(nome, Provider)
     return cls()

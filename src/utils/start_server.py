@@ -4,7 +4,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib import error, request
 
-from src.providers import create_sanitizer
+from src.providers import create_provider
 from src.utils.auth_header import montar_auth
 from src.utils.config_paths import DEFAULT_PORT
 from src.utils.find_free_port import find_free_port
@@ -77,8 +77,8 @@ class ProxyHandler(BaseHTTPRequestHandler):
             _log.info("POST %s model=%s status=400 duration=%dms", self.path, modelo, _elapsed_ms(t0))
             self._enviar_json(400, {"error": {"message": str(exc)}})
             return
-        san = create_sanitizer(provider)
-        dados = san.sanitize_request(dados)
+        prov = create_provider(provider)
+        dados = prov.sanitize_request(dados)
         dados["model"] = modelo_bare
         self.server.signature_cache.inject(dados.get("messages") or [])
         cfg = self.server.providers[provider]
@@ -92,7 +92,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
 
         if dados.get("stream"):
             self._repassar_stream(provider, payload, url, prefixed_model=prefixed_model,
-                                  san=san)
+                                  prov=prov)
             return
         status, corpo, _ = forward_request(
             self.server.round_robin, provider, payload, url=url,
@@ -104,14 +104,14 @@ class ProxyHandler(BaseHTTPRequestHandler):
             resposta = None
         if resposta is not None:
             self.server.signature_cache.collect(resposta)
-            corpo = json.dumps(san.sanitize_response(resposta)).encode("utf-8")
+            corpo = json.dumps(prov.sanitize_response(resposta)).encode("utf-8")
         _log.info(
             "POST %s model=%s provider=%s status=%d duration=%dms",
             self.path, prefixed_model, provider, status, _elapsed_ms(t0),
         )
         self._enviar_json(status, None, raw=corpo)
 
-    def _repassar_stream(self, provider, payload, url, prefixed_model=None, san=None):
+    def _repassar_stream(self, provider, payload, url, prefixed_model=None, prov=None):
         t0 = time.time()
         rr = self.server.round_robin
         template = self.server.providers[provider].get("auth-header")
@@ -170,10 +170,10 @@ class ProxyHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.close_connection = True
             coletor = self.server.signature_cache.collect
-            if san is None:
-                san = create_sanitizer(provider)
+            if prov is None:
+                prov = create_provider(provider)
             for linha in res:
-                self.wfile.write(san.sanitize_sse_line(linha, collector=coletor))
+                self.wfile.write(prov.sanitize_sse_line(linha, collector=coletor))
                 self.wfile.flush()
             _log.info(
                 "POST %s model=%s provider=%s stream=end duration=%dms",

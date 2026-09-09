@@ -1,6 +1,6 @@
 import unittest
 
-from src.sanitizer import Sanitizer
+from src.providers.base import Provider
 
 
 def _resposta_com_extra(**extras):
@@ -9,7 +9,7 @@ def _resposta_com_extra(**extras):
 
 class SanitizerResponseTests(unittest.TestCase):
     def setUp(self):
-        self.san = Sanitizer()
+        self.san = Provider()
 
     def test_remove_de_message_preservando_resto(self):
         resp = _resposta_com_extra(
@@ -77,7 +77,7 @@ class SanitizerResponseTests(unittest.TestCase):
 
 class SanitizerSseLineTests(unittest.TestCase):
     def setUp(self):
-        self.san = Sanitizer()
+        self.san = Provider()
 
     def test_linha_modificada_e_reconstruida_no_formato_exato(self):
         chunk = {

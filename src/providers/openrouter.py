@@ -1,9 +1,6 @@
-from src.sanitizer import Sanitizer
+from src.providers.base import Provider
 
 
-BASE_URL = "https://openrouter.ai/api/v1"
-NAME = "openrouter"
-
-
-class OpenRouterSanitizer(Sanitizer):
-    """Herda o comportamento genérico; customizações do OpenRouter vêm aqui."""
+class OpenRouter(Provider):
+    name = "openrouter"
+    base_url = "https://openrouter.ai/api/v1"

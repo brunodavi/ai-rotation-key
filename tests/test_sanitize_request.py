@@ -1,11 +1,11 @@
 import unittest
 
-from src.sanitizer import Sanitizer
+from src.providers.base import Provider
 
 
 class SanitizerRequestTests(unittest.TestCase):
     def setUp(self):
-        self.san = Sanitizer()
+        self.san = Provider()
 
     def test_remove_chaves_fora_da_whitelist(self):
         dados = {

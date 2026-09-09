@@ -2,7 +2,7 @@ import json
 import unittest
 
 from src.providers import (
-    create_sanitizer,
+    create_provider,
     default_base_url,
     nomes_conhecidos,
 )
@@ -27,29 +27,47 @@ class ProvidersRegistroTests(unittest.TestCase):
         self.assertIsNone(default_base_url(""))
 
 
-class CreateSanitizerTests(unittest.TestCase):
-    def test_cada_provider_exporta_uma_subclasse_de_sanitizer(self):
-        from src.sanitizer import Sanitizer
+class ProviderClassesTests(unittest.TestCase):
+    def test_cada_provider_exporta_uma_subclasse_de_provider(self):
+        from src.providers import gemini, opencode_zen, openrouter
+        from src.providers.base import Provider
+
+        for modulo, cls in (
+            (gemini, gemini.Gemini),
+            (openrouter, openrouter.OpenRouter),
+            (opencode_zen, opencode_zen.OpenCodeZen),
+        ):
+            with self.subTest(provider=cls.__name__):
+                self.assertTrue(issubclass(cls, Provider))
+
+    def test_cada_classe_declara_name_e_base_url(self):
         from src.providers import gemini, opencode_zen, openrouter
 
-        for modulo in (gemini, openrouter, opencode_zen):
-            with self.subTest(provider=modulo.NAME):
-                self.assertTrue(hasattr(modulo, "Sanitizer"))
-                self.assertTrue(issubclass(modulo.Sanitizer, Sanitizer))
+        for cls, nome, base in (
+            (gemini.Gemini, "gemini", "https://generativelanguage.googleapis.com/v1beta/openai"),
+            (openrouter.OpenRouter, "openrouter", "https://openrouter.ai/api/v1"),
+            (opencode_zen.OpenCodeZen, "opencode-zen", "https://opencode.ai/zen/v1"),
+        ):
+            with self.subTest(provider=nome):
+                self.assertEqual(cls.name, nome)
+                self.assertEqual(cls.base_url, base)
 
-    def test_create_sanitizer_para_provider_conhecido(self):
+
+class CreateProviderTests(unittest.TestCase):
+    def test_create_provider_para_provider_conhecido(self):
         for nome in ("gemini", "openrouter", "opencode-zen"):
             with self.subTest(provider=nome):
-                san = create_sanitizer(nome)
-                self.assertTrue(callable(san.sanitize_request))
-                self.assertTrue(callable(san.sanitize_response))
-                self.assertTrue(callable(san.sanitize_sse_line))
+                prov = create_provider(nome)
+                self.assertEqual(prov.name, nome)
+                self.assertTrue(callable(prov.sanitize_request))
+                self.assertTrue(callable(prov.sanitize_response))
+                self.assertTrue(callable(prov.sanitize_sse_line))
 
-    def test_create_sanitizer_para_desconhecido_usa_base(self):
-        from src.sanitizer import Sanitizer
+    def test_create_provider_para_desconhecido_usa_base(self):
+        from src.providers.base import Provider
 
-        san = create_sanitizer("prov-x")
-        self.assertIsInstance(san, Sanitizer)
+        prov = create_provider("prov-x")
+        self.assertIsInstance(prov, Provider)
 
     def test_gemini_remove_chaves_fora_da_whitelist(self):
         dados = {
@@ -58,12 +76,12 @@ class CreateSanitizerTests(unittest.TestCase):
             "logprobs": True,
             "user": "fulano",
         }
-        limpo = create_sanitizer("gemini").sanitize_request(dados)
+        limpo = create_provider("gemini").sanitize_request(dados)
         self.assertEqual(set(limpo), {"model", "messages"})
 
     def test_gemini_normaliza_tools_legado(self):
         legada = {"name": "get_time", "parameters": {"type": "object"}}
-        limpo = create_sanitizer("gemini").sanitize_request({
+        limpo = create_provider("gemini").sanitize_request({
             "model": "m",
             "messages": [{"role": "user", "content": "oi"}],
             "tools": [legada],
@@ -81,7 +99,7 @@ class CreateSanitizerTests(unittest.TestCase):
                 }
             }]
         }
-        resultado = create_sanitizer("gemini").sanitize_response(resp)
+        resultado = create_provider("gemini").sanitize_response(resp)
         message = resultado["choices"][0]["message"]
         self.assertEqual(message, {"role": "assistant", "content": "ok"})
         self.assertNotIn("extra_content", message)
@@ -91,7 +109,7 @@ class CreateSanitizerTests(unittest.TestCase):
             "choices": [{"delta": {"content": "oi", "extra_content": {"g": {}}}, "index": 0}]
         }
         linha = b"data: " + json.dumps(chunk).encode() + b"\n\n"
-        saida = create_sanitizer("gemini").sanitize_sse_line(linha)
+        saida = create_provider("gemini").sanitize_sse_line(linha)
         self.assertNotIn(b"extra_content", saida)
         self.assertTrue(saida.startswith(b"data: "))
         self.assertTrue(saida.endswith(b"\n\n"))

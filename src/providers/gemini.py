@@ -1,9 +1,6 @@
-from src.sanitizer import Sanitizer
+from src.providers.base import Provider
 
 
-BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai"
-NAME = "gemini"
-
-
-class GeminiSanitizer(Sanitizer):
-    """Herda o comportamento genérico; customizações do Gemini vêm aqui."""
+class Gemini(Provider):
+    name = "gemini"
+    base_url = "https://generativelanguage.googleapis.com/v1beta/openai"
