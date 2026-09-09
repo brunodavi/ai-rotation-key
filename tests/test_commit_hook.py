@@ -164,5 +164,33 @@ class FalhasStagedTests(unittest.TestCase):
         self.assertIn("tmp/", falhas[0])
 
 
+class PostCommitTests(unittest.TestCase):
+    def test_push_do_branch_atual_por_padrao(self):
+        chamadas = []
+
+        def run(cmd, **kwargs):
+            chamadas.append(cmd)
+            return subprocess.CompletedProcess(cmd, 0)
+
+        self.assertEqual(commit_hook.post_commit(run=run), 0)
+        self.assertEqual(chamadas, [["git", "push"]])
+
+    def test_falha_do_push_loga_mas_nao_bloqueia_o_commit(self):
+        chamadas = []
+
+        def run(cmd, **kwargs):
+            chamadas.append(cmd)
+            return subprocess.CompletedProcess(cmd, 1, stderr="rede caiu\n")
+
+        import io
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with redirect_stderr(buf):
+            codigo = commit_hook.post_commit(run=run)
+        self.assertEqual(codigo, 0)
+        self.assertIn("push", buf.getvalue())
+        self.assertIn("rede caiu", buf.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main()

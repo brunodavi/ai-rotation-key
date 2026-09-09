@@ -4,6 +4,7 @@
 
 Cria shims em .git/hooks que delegam para scripts/hooks/commit_hook.py:
   pre-commit   → suíte verde + nada de segredo/arquivo espúrio no staged
+  post-commit  → push automático do branch atual
   commit-msg   → valida `<tipo>(<escopo>): [FASE - ]mensagem`
 
 Os hooks são locais (.git não é versionado); rode este script após novo clone.
@@ -40,10 +41,11 @@ def main():
         print("erro: scripts/hooks/commit_hook.py não encontrado", file=sys.stderr)
         return 1
     escrever("pre-commit", "pre-commit")
+    escrever("post-commit", "post-commit")
     escrever("commit-msg", 'commit-msg "$@"')
     escrever("pre-push", "pre-push")
-    print("hooks ativos: suíte+segredos no pre-commit, formato no commit-msg, "
-          "tags=prod no pre-push")
+    print("hooks ativos: suíte+segredos no pre-commit, push automático no post-commit, "
+          "formato no commit-msg, tags=prod no pre-push")
     return 0
 
 

@@ -54,6 +54,8 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
 - Hooks automáticos (`scripts/install-git-hooks.py`, uma vez por clone):
   - pre-commit: escaneia staged por segredos (sk-/AIza…), arquivo espúrio sem extensão e
     qualquer caminho em tmp/ — NÃO roda a suíte (o ciclo TDD exige commitar em RED)
+  - post-commit: push automático do branch atual (dev sempre atualizado, mesmo em RED;
+    nunca bloqueia o commit)
   - commit-msg: valida o formato acima
   - pre-push: gate de PROD para tags (versão/semver/pin do README/suíte/árvore) — é AQUI que a
     suíte roda no push; o README tem que apontar `git+…@<tag>` sendo publicada; push de branch

@@ -2,6 +2,8 @@
 
 Uso:
     commit_hook.py pre-commit            → nada de segredo/lixo/tmp no staged
+    commit_hook.py post-commit           → push automático do branch atual (dev sempre
+                                           atualizado; nunca bloqueia o commit)
     commit_hook.py commit-msg <arquivo>  → valida `<tipo>(<escopo>): [FASE - ]mensagem`
     commit_hook.py pre-push (stdin)      → tags são PROD: semver subindo, versão do
                                            pyproject consistente, pin do README na
@@ -96,6 +98,25 @@ def validar_tag(tag, versao, tags_existentes):
         return (f"versão '{tag}' precisa ser MAIOR que a maior já existente "
                 f"(v{maior_existente[0]}.{maior_existente[1]}.{maior_existente[2]})")
     return None
+
+
+def post_commit(run=subprocess.run):
+    """Push automático após cada commit — dev sempre atualizado, mesmo em RED.
+
+    Post-commit nunca bloqueia o commit: se o push falhar (ex.: sem rede),
+    loga o erro mas retorna 0 para não demover o commit já feito.
+    """
+    try:
+        resultado = run(["git", "push"], capture_output=True, text=True)
+    except OSError as err:
+        _erro(f"push automático falhou: {err}")
+        return 0
+    if resultado.returncode != 0:
+        _saida("push automático não conseguiu (commit local mantido): "
+               + (resultado.stderr or resultado.stdout or "").strip())
+        return 0
+    _saida("push automático ok")
+    return 0
 
 
 def pre_push():
@@ -237,16 +258,18 @@ def commit_msg(caminho_msg):
 
 def main(argv):
     if len(argv) < 2:
-        print("uso: commit_hook.py <pre-commit | commit-msg <arquivo> | pre-push>",
+        print("uso: commit_hook.py <pre-commit | post-commit | commit-msg <arquivo> | pre-push>",
               file=sys.stderr)
         return 2
     if argv[1] == "pre-commit":
         return pre_commit()
+    if argv[1] == "post-commit":
+        return post_commit()
     if argv[1] == "pre-push":
         return pre_push()
     if argv[1] == "commit-msg" and len(argv) >= 3:
         return commit_msg(argv[2])
-    print("uso: commit_hook.py <pre-commit | commit-msg <arquivo> | pre-push>",
+    print("uso: commit_hook.py <pre-commit | post-commit | commit-msg <arquivo> | pre-push>",
           file=sys.stderr)
     return 2
 
