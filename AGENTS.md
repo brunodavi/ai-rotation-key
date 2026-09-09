@@ -36,7 +36,7 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
 - Testes: unittest stdlib, unitários + integração
 
 # Estrutura
-- main.py (entrypoint), src/cli.py (só argparse/wiring), src/commands/<comando>.py (lógica de cada comando CLI), src/utils/__init__.py (barrel) + src/utils/<cada_funcao>.py, scripts/ (hooks git: install-git-hooks.py + hooks/commit_hook.py), tmp/todo-list/ (fila de tarefas)
+- main.py (entrypoint), src/cli.py (só argparse/wiring), src/commands/<comando>.py (lógica de cada comando CLI), src/utils/__init__.py (barrel) + src/utils/<cada_funcao>.py, scripts/ (hooks git: install-git-hooks.py + hooks/commit_hook.py)
 - tests/, tmp/ (ignorado pelo git)
 
 # Convenções
@@ -65,7 +65,7 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
 # Agent
 - Toda sessão de implementação mantém a lista de tarefas interna da ferramenta do opencode
   (`todowrite`) com as etapas do ciclo — é assim que você se organiza e o dono acompanha em qual
-  etapa está em tempo real; ela NÃO substitui `tmp/todo-list/` (fila de projeto, só do planner)
+  etapa está em tempo real
 - Usar ./tmp para guardar informações e validações sobre APIs/documentações e seus contratos reais
     - ./tmp/spikes: validações encontradas em .md
     - ./tmp/apis/<nome>: pastas com request/response
@@ -99,20 +99,10 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
 - [ ] Qwen
 
 # Planejamento & Tarefas
-- Tarefas vivem em `tmp/todo-list/` (gitignored, local ao dono) — flat, SEM subpastas de status:
-  todo `.md` ali é pendente; o que está em andamento é o arquivo que a sessão corrente implementa
-  (código não-committado na dev registra o resto); tarefa pronta = arquivo apagado — NÃO há
-  TODO_LIST.md versionado e NÃO existe registro de concluídas: histórico mora no git (commits + tags)
-  - Ordem = prioridade via prefixo numérico (`<n>-<tipo>-<nome>.md`); ideia nova entra SEMPRE no fim;
-    reordenar = renomear prefixos
-  - Tarefas com `> ⚠️ NÃO INICIAR sem ok explícito do dono` no topo exigem aprovação antes de começar
-- Agente `planner` (`.opencode/agent/planner.md`): investiga projeto + web + spikes e escreve as
-  tarefas SEMPRE fechando escopo com perguntas ao dono. Permissões: leitura de tudo, escrita SÓ em
-  `tmp/todo-list/`, bash só para `mv` dentro da pasta, sem subagentes, nunca executa.
-- Cada arquivo de tarefa nasce inteiro num único write — nunca editar parcialmente; mudar = reescrever
-- Fluxo: ideia vaga → sessão com `planner` (primário ou @planner) → arquivo no fim da lista →
-  implementação direto na dev conforme Workflow TDD & Git → validação do dono → tag do ciclo →
-  arquivo da tarefa apagado
+- Foco na tarefa atual: ideias novas são registradas e discutidas com o dono na própria sessão,
+  sem fila múltipla de tarefas em paralelo
+- A lista de etapas do ciclo vive no `todowrite` da sessão corrente; nada é versionado ou mantido
+  como fila persistente de projeto (histórico = git: commits + tags)
 
 # Repositórios de Referência
 - HydraGemini
