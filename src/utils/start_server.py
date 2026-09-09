@@ -4,6 +4,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib import error, request
 
+from src.providers import create_sanitizer
 from src.utils.auth_header import montar_auth
 from src.utils.config_paths import DEFAULT_PORT
 from src.utils.find_free_port import find_free_port
@@ -12,8 +13,6 @@ from src.utils.key_mask import format_key
 from src.utils.load_config import load_config
 from src.utils.logging_setup import setup_logging
 from src.utils.round_robin import RoundRobin
-from src.utils.sanitize_request import sanitize_request
-from src.utils.sanitize_response import sanitize_response_payload, sanitize_sse_line
 from src.utils.signature_cache import SignatureCache
 from src.utils.user_agent import USER_AGENT
 
@@ -70,7 +69,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
             self._enviar_json(400, {"error": {"message": f"JSON inválido: {exc}"}})
             return
 
-        dados = sanitize_request(dados if isinstance(dados, dict) else {})
+        dados = dados if isinstance(dados, dict) else {}
         modelo = dados.get("model") or self.server.model_ids[0]
         try:
             provider, modelo_bare = self.server.resolver(modelo)
@@ -78,6 +77,8 @@ class ProxyHandler(BaseHTTPRequestHandler):
             _log.info("POST %s model=%s status=400 duration=%dms", self.path, modelo, _elapsed_ms(t0))
             self._enviar_json(400, {"error": {"message": str(exc)}})
             return
+        san = create_sanitizer(provider)
+        dados = san.sanitize_request(dados)
         dados["model"] = modelo_bare
         self.server.signature_cache.inject(dados.get("messages") or [])
         cfg = self.server.providers[provider]
@@ -90,7 +91,8 @@ class ProxyHandler(BaseHTTPRequestHandler):
         prefixed_model = f"{provider}/{modelo_bare}"
 
         if dados.get("stream"):
-            self._repassar_stream(provider, payload, url, prefixed_model=prefixed_model)
+            self._repassar_stream(provider, payload, url, prefixed_model=prefixed_model,
+                                  san=san)
             return
         status, corpo, _ = forward_request(
             self.server.round_robin, provider, payload, url=url,
@@ -102,14 +104,14 @@ class ProxyHandler(BaseHTTPRequestHandler):
             resposta = None
         if resposta is not None:
             self.server.signature_cache.collect(resposta)
-            corpo = json.dumps(sanitize_response_payload(resposta)).encode("utf-8")
+            corpo = json.dumps(san.sanitize_response(resposta)).encode("utf-8")
         _log.info(
             "POST %s model=%s provider=%s status=%d duration=%dms",
             self.path, prefixed_model, provider, status, _elapsed_ms(t0),
         )
         self._enviar_json(status, None, raw=corpo)
 
-    def _repassar_stream(self, provider, payload, url, prefixed_model=None):
+    def _repassar_stream(self, provider, payload, url, prefixed_model=None, san=None):
         t0 = time.time()
         rr = self.server.round_robin
         template = self.server.providers[provider].get("auth-header")
@@ -168,8 +170,10 @@ class ProxyHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.close_connection = True
             coletor = self.server.signature_cache.collect
+            if san is None:
+                san = create_sanitizer(provider)
             for linha in res:
-                self.wfile.write(sanitize_sse_line(linha, collector=coletor))
+                self.wfile.write(san.sanitize_sse_line(linha, collector=coletor))
                 self.wfile.flush()
             _log.info(
                 "POST %s model=%s provider=%s stream=end duration=%dms",
