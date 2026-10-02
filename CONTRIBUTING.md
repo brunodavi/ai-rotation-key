@@ -83,4 +83,9 @@ Estratégia: debrue **apenas o teste que falha**, com `breakpoint()` relevantes 
 
 - [`docs/config.md`](docs/config.md) — referência do `config.json`
 - [`docs/arquitetura.md`](docs/arquitetura.md) — fluxo, políticas, limitações e créditos
-- `AGENTS.md` — instruções do agente que atua neste repo (mantido à parte do README)
+- `AGENTS.md` — instruções do agente que atua neste repo (mantido à parte do README; os processos deste arquivo são a fonte canônica dele)
+
+Convenções:
+
+- `README.md` enxuto: instalação fixando a última tag, comandos e motivação (erro no Termux por causa do Rust); **sem** notas de migração de versões antigas e sem detalhe técnico que pertença a `docs/`.
+- Detalhe técnico novo vai para `docs/`; processo de contribuição vai para este arquivo.

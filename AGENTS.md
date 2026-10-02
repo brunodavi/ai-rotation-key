@@ -1,12 +1,8 @@
 # Objetivo
 Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no Termux (motivação: ferramentas comuns quebram no Termux por exigirem Rust para compilar).
 
-# Comandos
-- Instalar (dev): `pip install -e .`
-- Instalar hooks git (uma vez por clone): `python scripts/install-git-hooks.py`
-- Todos os testes: `python -m unittest discover -s tests -v`
-- Um módulo de teste: `python -m unittest tests.test_<modulo>`
-- Sem lint (decisão: não adicionar)
+# Referência canônica de contribuição
+Ambiente de dev (`uv pip install -e .` / `pip install -e .`, instalação dos hooks, sem lint), comandos de teste, regras de integração (`tests/mock_server.py`, porta efêmera, fixtures em `tmp/.scratch/`), workflow TDD & Git (RED/GREEN/REFACTOR, formato de commit, branch `dev` em qualquer estado, tags = PROD), o que cada hook git faz, debug com tmux + pdb e as convenções de documentação vivem em **[CONTRIBUTING.md](CONTRIBUTING.md)** — é a fonte canônica: siga lá e não duplique esse conteúdo aqui.
 
 # Tech
 - Python puro: ZERO dependências, runtime e dev. Sem requirements.txt
@@ -33,36 +29,6 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
 - Rotação: round-robin simples por modelo — cada request usa a próxima chave da lista do modelo pedido, ciclicamente
 - Rotação NUNCA acontece em 400/404 (chave válida/request ruim/modelo morto) — só em 429 e erro de conexão
 - thought_signature de tool calls (Gemini 3.x): cache `id → assinatura` e reinjeção no histórico do turno seguinte (`src/utils/signature_cache.py`) — a API exige o round-trip e o cliente não deve ver extra_content
-- Testes: unittest stdlib, unitários + integração
-
-# Estrutura
-- main.py (entrypoint), src/cli.py (só argparse/wiring), src/commands/<comando>.py (lógica de cada comando CLI), src/utils/__init__.py (barrel) + src/utils/<cada_funcao>.py, scripts/ (hooks git: install-git-hooks.py + hooks/commit_hook.py)
-- tests/, tmp/ (ignorado pelo git)
-
-# Convenções
-- Commits seguem o padrão com fase TDD definido em # Workflow TDD & Git (validado pelo hook commit-msg)
-- README.md enxuto: instalação fixando a última tag, comandos e motivação (erro no Termux por causa do Rust); sem notas de migração de versões antigas
-
-# Workflow TDD & Git
-- TDD à risca: validação do comportamento real → RED (erro na asserção, stub mínimo necessário) → GREEN → REFACTOR
-- Branch de trabalho é a `dev` (antes `master`): commits diretos e push em QUALQUER estado — inclusive RED; dev é ambiente de desenvolvimento
-  - Formato: `<tipo>(<escopo-opcional>): <FASE> - <mensagem>` · Fase por tipo: test→RED ·
-    feat→GREEN · refactor→REFACTOR · fix→RED|GREEN · docs/chore SEM fase · Merge/Revert imunes ·
-    REFACTOR é opcional no ciclo
-- TAGS são PROD (pre-push valida): só sobem com versão semver MAIOR que a última existente, batendo com `pyproject.toml`, com o pin de instalação do README apontando pra tag, suíte verde e árvore limpa
-- A cada ciclo comprovado — suíte verde + validação manual do dono — subir a versão no pyproject e criar a tag do estado estável
-- Hooks automáticos (`scripts/install-git-hooks.py`, uma vez por clone):
-  - pre-commit: escaneia staged por segredos (sk-/AIza…), arquivo espúrio sem extensão e
-    qualquer caminho em tmp/ — NÃO roda a suíte (o ciclo TDD exige commitar em RED)
-  - post-commit: push automático do branch atual (dev sempre atualizado, mesmo em RED;
-    nunca bloqueia o commit)
-  - commit-msg: valida o formato acima
-  - pre-push: gate de PROD para tags (versão/semver/pin do README/suíte/árvore) — é AQUI que a
-    suíte roda no push; o README tem que apontar `git+…@<tag>` sendo publicada; push de branch
-    comum não testa (dev aceita qualquer estado)
-- Testes de integração SEMPRE via `tests/mock_server.py`: rotas as-is com respostas registráveis, `reset()` por teste, sequenciais (1 worker, sem paralelismo)
-- Porta em teste: efêmera por padrão; se fixada via `AI_ROTATION_MOCK_PORT`, anti-colisão +1 (`find_free_port`)
-- NADA fora do projeto (Termux não tem /tmp): fixtures de HOME em `tmp/.scratch/`, nunca tempfile do sistema; servidor real deriva porta com +1 e loga a efetiva
 
 # Agent
 - Toda sessão de implementação mantém a lista de tarefas interna da ferramenta do opencode
@@ -76,21 +42,6 @@ Roteador round-robin de chaves de APIs de IA. Leve e simples, para funcionar no 
 - Sempre validar o comportamento real antes de assumir
 - Sempre seguir TDD à risca: validação do comportamento real → RED (erro na asserção, stub mínimo necessário) → GREEN → REFACTOR
 - Projeto também usado como harness para validar comportamento do opencode
-
-# Debug (tmux + pdb)
-- Disponível no Termux: `tmux` para sessões background + `breakpoint()` do Python (pdb)
-- **Estratégia para testes falhando**: rodar apenas o teste que falha com `breakpoint()` relevantes
-  no código-fonte e no teste se necessário — não rodar a suíte inteira para depurar
-- **Setup rápido**:
-  1. Adicionar `breakpoint()` no ponto desejado do código
-  2. Criar sessão: `tmux new-session -d -s debug "python -m unittest tests.test_<modulo>.<Classe>.<metodo> -v"`
-  3. Capturar tela: `tmux capture-pane -t debug -p`
-  4. Enviar comandos: `tmux send-keys -t debug "<comando_pdb>" Enter`
-  5. Capturar resultado: `tmux capture-pane -t debug -p`
-  6. Matar sessão: `tmux kill-session -t debug`
-- **Comandos pdb úteis**: `p <var>` (imprimir), `n` (next), `s` (step), `c` (continue), `l` (list), `w` (where), `q` (quit)
-- **Cuidado**: script deve ter `input()` ou loop infinito antes do fim para a sessão não encerrar
-  sozinha; senão, `tmux capture-pane` pode ver "no server running" porque a sessão já morreu
 
 # Modelos/Gateways
 - [x] Gemini
