@@ -3,12 +3,21 @@
     python scripts/install-git-hooks.py
 
 Cria shims em .git/hooks que delegam para scripts/hooks/commit_hook.py:
-  pre-commit   → suíte verde + nada de segredo/arquivo espúrio no staged
+  pre-commit   → nada de segredo/arquivo espúrio/tmp no staged
   post-commit  → push automático do branch atual
   commit-msg   → valida `<tipo>(<escopo>): [FASE - ]mensagem`
+  pre-push     → gate de PROD nas tags: semver/versão/pin do README + suíte verde + árvore limpa
+
+A suíte NÃO roda no pre-commit de propósito (o fluxo TDD exige commitar em RED):
+ela é gate exclusivo do pre-push, e só quando o push leva tag.
 
 Os hooks são locais (.git não é versionado); rode este script após novo clone.
 """
+
+RESUMO = (
+    "hooks ativos: segredos/lixo/tmp no pre-commit, push automático no post-commit, "
+    "formato no commit-msg, tags=prod (suíte verde) no pre-push"
+)
 
 import os
 import stat
@@ -44,8 +53,7 @@ def main():
     escrever("post-commit", "post-commit")
     escrever("commit-msg", 'commit-msg "$@"')
     escrever("pre-push", "pre-push")
-    print("hooks ativos: suíte+segredos no pre-commit, push automático no post-commit, "
-          "formato no commit-msg, tags=prod no pre-push")
+    print(RESUMO)
     return 0
 
 
