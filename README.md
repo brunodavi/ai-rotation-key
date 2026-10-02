@@ -1,137 +1,83 @@
 # ai-rotation-key
 
-Roteador round-robin de chaves de APIs de IA. Leve e simples, feito para rodar no Termux.
+Roteador local de chaves de APIs de IA: um único endpoint OpenAI-compatível em `127.0.0.1`, com round-robin entre as chaves de cada modelo.
 
-## Motivação
+## O problema
 
-Ferramentas comuns de rotação/proxy de chaves quebram no Termux por exigirem Rust para compilar dependências. Este projeto é **Python puro**: zero dependências em runtime e desenvolvimento — só stdlib (setuptools entra apenas como build-backend do empacotamento).
+Toda ferramenta de rotação/proxy de chaves quebra no Termux: elas dependem de Rust para compilar. Este projeto é **Python puro** — zero dependências (runtime e dev), só stdlib — então instala em segundos onde houver Python 3.14+.
+
+O que ele faz:
+
+- **Round-robin por modelo** — cada request usa a próxima chave daquele modelo, ciclicamente; os modelos de um provider dividem o ciclo das chaves dele.
+- **Failover automático** — em 429 (cota) ou queda de conexão ele tenta a próxima chave; em 400/404 repassa direto, sem gastar o pool.
+- **Um endpoint só** — o cliente aponta para `http://127.0.0.1:8792/v1` e o proxy cuida das chaves, do upstream e das assinaturas do Gemini.
 
 ## Instalação
+
+Requisito: **Python 3.14+**. Fixe sempre a última tag (`v0.8.0`): toda tag passou por suíte verde e validação manual. A branch `dev` é trabalho em andamento.
+
+### uv (recomendado)
+
+```sh
+uv tool install git+https://github.com/brunodavi/ai-rotation-key.git@v0.8.0
+```
+
+### pipx
+
+```sh
+pipx install git+https://github.com/brunodavi/ai-rotation-key.git@v0.8.0
+```
+
+### pip
 
 ```sh
 pip install git+https://github.com/brunodavi/ai-rotation-key.git@v0.8.0
 ```
 
-Requisito: Python 3.14+. A branch padrão (`dev`) recebe trabalho em andamento — para uso estável, instale sempre fixando a **última tag** (toda tag passou por suíte verde e validação manual).
+**No Linux:** o `pip` do sistema é gerenciado pela distribuição (PEP 668) — instalar assim é recusado, e a saída sugerida, `--break-system-packages`, é justamente a que pode quebrar pacotes do próprio sistema. Use `uv` ou `pipx` nesse caso.
 
-Desenvolvimento (clone + editable + hooks):
-
-```sh
-git clone https://github.com/brunodavi/ai-rotation-key.git
-cd ai-rotation-key
-pip install -e .
-python scripts/install-git-hooks.py   # uma vez: suíte+segredos no commit, gate de versão no push de tags
-```
+**No Termux:** não existe essa trava e, como o projeto não tem dependências, não há nada a quebrar — `pip install` funciona direto.
 
 ## Uso
 
 ```sh
-# Cria config de exemplo em ~/.config/ai-rotation-key/config.json
-airkey init
-
-# Abre o config no $EDITOR (fallback: vi)
-airkey edit
-
-# Abre o config do opencode (~/.config/opencode/config.json)
-airkey edit --opencode
-
-# Sobe o servidor local (escuta apenas em 127.0.0.1)
-airkey start
-
-# Registra este servidor como provider no ~/.config/opencode/config.json (idempotente, não duplica)
-airkey export
-
-# Busca /models de cada provider e adiciona os faltantes ao config
-airkey sync-models          # todos os providers
-airkey sync-models gemini   # apenas um
+airkey init        # cria ~/.config/ai-rotation-key/config.json de exemplo
+airkey edit        # abre o config no $EDITOR (use --opencode para o config do opencode)
+airkey start       # sobe o servidor em 127.0.0.1 (porta do config, padrão 8792)
+airkey export      # registra o servidor como provider no opencode (idempotente)
+airkey sync-models # adiciona ao config os modelos que faltam (sync-models <provider> para um só)
 ```
 
-O comando canônico é `ai-rotation-key`; `airkey` é o atalho — use o que preferir, ambos fazem o mesmo.
+Fluxo usual: `init` → edite o config com suas chaves → `sync-models` → `start` (ou `export` para usar pelo opencode). Formato do config em [`docs/config.md`](docs/config.md).
 
-### Config
-
-`~/.config/ai-rotation-key/config.json` — providers com suas chaves e modelos. Round-robin **por provider**: os modelos de um provider dividem o ciclo das chaves dele. `base-url` é opcional para `gemini`, `openrouter` e `opencode-zen` (defaults embutidos) e obrigatório para outros providers.
-
-> Dica OpenCode Zen: modelos free funcionam até com a string `"public"` no lugar da key (`"api-keys": ["public"]`) — é o mesmo acesso anônimo que o próprio opencode usa, limitado por IP pelo gateway. O proxy envia um `User-Agent` próprio em todas as chamadas upstream (requisito do Cloudflare do zen).
-
-```json
-{
-  "port": 8792,
-  "providers": {
-    "gemini": {
-      "api-keys": ["sk-exemplo-1", "sk-exemplo-2"],
-      "filter-models": ["!*tts*", "!*image*", "!*embedding*", "!veo-*"],
-      "models": ["gemini-3.5-flash", "gemini-3.1-flash-lite"]
-    },
-    "openai": {
-      "base-url": "https://api.openai.com/v1",
-      "api-keys": ["sk-sua-chave-openai"],
-      "models": ["gpt-4o-mini"]
-    }
-  }
-}
-```
-
-`sync-models` lista os modelos de cada provider via `GET {base-url}/models` e adiciona só os faltantes — **nunca testa os modelos** (cota intacta) e nunca remove o que você já tinha. Padrões glob em `filter-models` filtram candidatos: positivos são allowlist, `!padrão` remove; sem positivos, tudo menos os negativos (TTS, imagem, embeddings etc.); casam com o id sem prefixo `models/`.
-
-Os modelos são expostos com namespace `<provider>/<modelo>` (ex.: `openrouter/gpt-4`, `opencode-zen/big-pickle`) para evitar confusão entre gateways; requests aceitam também o nome pelado quando ele só existe em um provider. O mesmo modelo em providers distintos é permitido — qualifique quando ambos atenderem.
-
-### Gateway quase-compatível (mapeamento customizado)
-
-Providers cujo `/models` ou chat fogem do padrão OpenAI aceitam campos opcionais de mapeamento — todos ausentes = comportamento padrão:
-
-```json
-"meu-gateway": {
-  "base-url": "https://gateway.exemplo/api",
-  "api-keys": ["sua-chave"],
-  "models-endpoint": "/catalogo",
-  "path-models": "result.items[].modelId",
-  "chat-endpoint": "/v2/chat",
-  "chat-endpoint-stream": "/v2/chat:stream",
-  "auth-header": "X-Key: {api-key}"
-}
-```
-
-| Campo | O que faz | Default |
-|---|---|---|
-| `models-endpoint` | rota de descoberta anexada ao `base-url` | `/models` |
-| `path-models` | caminho dot-path dos ids na resposta (null-safe: item sem o campo é pulado) | `data[].id` |
-| `chat-endpoint` | rota anexada ao `base-url` no POST de chat; aceita `{model}` (ex.: `/models/{model}:generateContent`) | `/chat/completions` |
-| `chat-endpoint-stream` | rota alternativa usada quando o cliente pede `stream: true` (também aceita `{model}`) | valor de `chat-endpoint` |
-| `auth-header` | template do header de autenticação; `{api-key}` vira a chave do ciclo atual. Com `Nome: {api-key}` define também o nome do header (ex.: `x-goog-api-key: {api-key}`); sem dois-pontos, vira valor de `Authorization` | `Bearer {api-key}` |
-
-Se `path-models` não encontrar nada, o `sync-models` reporta falha daquele provider com o motivo — nada é adicionado.
+O comando canônico é `ai-rotation-key`; `airkey` é o atalho — os dois fazem o mesmo.
 
 ## Como funciona
 
-O proxy recebe chamadas OpenAI-compatíveis, escolhe a próxima chave do modelo pedido (round-robin) e repassa ao upstream. Em 429 ou erro de conexão ele tenta automaticamente a próxima chave; em 400/404 repassa direto sem gastar o pool. Assinaturas `thought_signature` de tool calls (exigidas pelo Gemini 3.x no turno seguinte) são guardadas e reinjetadas automaticamente — o cliente nunca vê campos extras.
+O proxy recebe a chamada OpenAI-compatível, escolhe a próxima chave do modelo e repassa ao upstream; as respostas são sanitizadas e as `thought_signature` do Gemini 3.x voltam sozinhas para o histórico. O servidor escuta **apenas em `127.0.0.1`** e as chaves ficam somente no seu config local.
 
-Detalhes, políticas e limitações: [`docs/arquitetura.md`](docs/arquitetura.md).
-
-## Inspiração
-
-Inspirado (e creditado) em [LiteLLM](https://github.com/BerriAI/litellm), [Hydra-gemini](https://github.com/LikithMeruvu/Hydra-gemini) e [Vercel AI SDK](https://sdk.vercel.ai/) — ver seção de créditos na documentação de arquitetura.
+Fluxo completo, políticas, integração com o opencode e limitações: [`docs/arquitetura.md`](docs/arquitetura.md).
 
 ## Desenvolvimento
 
-Branch padrão é a `dev` (trabalho em andamento); as **tags são as versões estáveis** — cada tag passou pela suíte completa e validação manual antes de ser publicada (o push de tag valida semver, consistência com o `pyproject.toml`, suíte e árvore limpa).
-
-Testes (unittest stdlib):
-
 ```sh
+git clone https://github.com/brunodavi/ai-rotation-key.git
+cd ai-rotation-key
+uv venv && uv pip install -e .        # ou: pip install -e .
+python scripts/install-git-hooks.py   # uma vez por clone
 python -m unittest discover -s tests -v
 ```
 
-Commits seguem `<tipo>(<escopo>): <FASE> - <mensagem>`, com fase TDD por tipo (test→RED, feat→GREEN, refactor→REFACTOR, fix→RED|GREEN; docs/chore sem fase) — o hook de commit-msg valida.
+TDD, formato de commit e o que cada hook faz: [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
-## Segurança
+## Documentação
 
-O servidor escuta **apenas em `127.0.0.1`** — suas chaves e requests não ficam acessíveis de outros dispositivos da rede. As chaves ficam somente no seu config local; o projeto não as envia para nenhum lugar além do upstream configurado. O hook de pre-commit escaneia tudo que vai ser commitado em busca de padrões de chave de API e bloqueia o commit se encontrar algo.
-
-Gemini 3.x exige que a `thought_signature` dos tool calls volte no histórico do turno seguinte: o proxy guarda essas assinaturas em cache e reinjeta automaticamente — o cliente nunca vê campos extras.
+- [`docs/config.md`](docs/config.md) — referência do `config.json`: providers, namespacing, `filter-models`, mapeamento de gateway
+- [`docs/arquitetura.md`](docs/arquitetura.md) — fluxo de um request, políticas, limitações e créditos
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — ambiente de dev, ciclo TDD, commits e hooks
 
 ## Licença
 
-[MIT](LICENSE)
+[MIT](LICENSE). Inspirado em [LiteLLM](https://github.com/BerriAI/litellm), [Hydra-gemini](https://github.com/LikithMeruvu/Hydra-gemini) e [Vercel AI SDK](https://sdk.vercel.ai/) — créditos em [`docs/arquitetura.md`](docs/arquitetura.md).
 
 > Projeto desenvolvido com assistência de IA (OpenCode).

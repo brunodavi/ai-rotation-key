@@ -2,6 +2,8 @@
 
 CLI + servidor HTTP local que intermedia chamadas OpenAI-compatíveis e distribui o tráfego entre múltiplas chaves por modelo (round-robin). Feito para rodar no Termux: Python puro, zero dependências em runtime e desenvolvimento.
 
+Formato do `config.json` (providers, namespacing, `filter-models`, mapeamento de gateway): [`config.md`](config.md).
+
 ## Fluxo de um request
 
 ```mermaid
@@ -38,7 +40,7 @@ flowchart TD
 | Módulo | Responsabilidade |
 | --- | --- |
 | `config_paths` | caminhos do config (`~/.config/ai-rotation-key/`) e porta padrão (8792) |
-| `init_config` / `load_config` | cria exemplo idempotente / lê e valida `{"model-keys": {...}, "port": n}` |
+| `init_config` / `load_config` | cria exemplo idempotente / lê e valida `{"port": n, "providers": {...}}` (formato antigo `model-keys` é rejeitado) |
 | `round_robin` | ciclo por modelo com `itertools.cycle` + lock |
 | `sanitize_request` / `sanitize_response` | contratos de entrada/saída e linhas SSE |
 | `signature_cache` | `tool_call.id → thought_signature`; coleta na resposta, injeção no histórico |
@@ -86,7 +88,7 @@ O bloco usa o pacote [`@ai-sdk/openai-compatible`](https://sdk.vercel.ai/docs/ai
 
 - Se o proxy reiniciar no meio de uma conversa com tools, as assinaturas anteriores se perdem (cache é em memória) — a próxima chamada pode dar 400 até um novo tool call.
 - Rotação em streaming cobre erros antes do primeiro chunk; queda no meio do stream repassa o que chegou.
-- Um único gateway por vez no config (`model-keys` global); múltiplos gateways ficam para versões futuras.
+- Request sem namespace é ambíguo quando o mesmo modelo existe em dois providers: o proxy responde `400` listando as opções — use `<provider>/<modelo>`.
 
 ## Inspiração e créditos
 
