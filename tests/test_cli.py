@@ -24,16 +24,37 @@ class CliRoutingTests(unittest.TestCase):
         casos = [
             (["init"], "src.commands.init", "init_config"),
             (["edit"], "src.commands.edit", "edit_config"),
-            (["export"], "src.commands.export", "export_provider"),
         ]
         for argv, modulo, nome in casos:
             with self.subTest(comando=argv[0]):
                 with mock.patch(f"{modulo}.{nome}", return_value=None) as handler:
                     main(argv)
                 handler.assert_called_once_with()
+        with mock.patch("src.commands.export.export_provider", return_value=None) as handler:
+            main(["export"])
+            handler.assert_called_once_with(harness="opencode2")
         with mock.patch("src.commands.start.start_server", return_value=None) as handler:
             main(["start"])
         handler.assert_called_once_with(verbose=0)
+
+    def test_export_passa_harness_da_flag(self):
+        casos = [
+            (["export"], "opencode2"),
+            (["export", "--harness", "opencode2"], "opencode2"),
+            (["export", "--harness", "opencode"], "opencode"),
+            (["export", "-H", "opencode"], "opencode"),
+            (["export", "-H", "opencode2"], "opencode2"),
+        ]
+        for argv, esperado in casos:
+            with self.subTest(argv=argv):
+                with mock.patch("src.commands.export.export_provider", return_value=None) as handler:
+                    main(argv)
+                handler.assert_called_once_with(harness=esperado)
+
+    def test_export_rejeita_harness_fora_da_lista(self):
+        with contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit):
+                main(["export", "--harness", "opencode3"])
 
     def test_sync_models_sem_arg_passa_apenas_none(self):
         fake = SyncResultFake({}, False, False, pathlib.Path("/tmp/x"))
