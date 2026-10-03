@@ -56,6 +56,17 @@ class CliRoutingTests(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 main(["export", "--harness", "opencode3"])
 
+    def test_ajuda_do_export_lista_os_harness_disponiveis(self):
+        with contextlib.redirect_stdout(io.StringIO()) as saida:
+            with self.assertRaises(SystemExit) as ctx:
+                main(["export", "--help"])
+        self.assertEqual(ctx.exception.code, 0)
+        ajuda = saida.getvalue()
+        self.assertIn("--harness", ajuda)
+        self.assertIn("-H", ajuda)
+        self.assertIn("{opencode,opencode2}", ajuda, "lista de harness tem que aparecer no help")
+        self.assertIn("opencode2", ajuda, "o default precisa estar explícito na ajuda")
+
     def test_sync_models_sem_arg_passa_apenas_none(self):
         fake = SyncResultFake({}, False, False, pathlib.Path("/tmp/x"))
         with mock.patch("src.commands.sync_models.sync_models", return_value=fake) as handler:
@@ -106,7 +117,7 @@ class CliRoutingTests(unittest.TestCase):
     def test_edit_flag_opencode_abre_config_do_opencode(self):
         with mock.patch("src.commands.edit.edit_config", return_value=None) as handler:
             main(["edit", "--opencode"])
-        esperado = pathlib.Path(os.environ["HOME"]) / ".config" / "opencode" / "config.json"
+        esperado = pathlib.Path(os.environ["HOME"]) / ".config" / "opencode" / "opencode.json"
         handler.assert_called_once_with(esperado)
 
     def test_edit_sem_flag_abre_o_config_do_projeto(self):

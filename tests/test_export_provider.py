@@ -38,7 +38,8 @@ class ExportProviderTests(unittest.TestCase):
 
     @property
     def _opencode_path(self):
-        return self.home / ".config" / "opencode" / "config.json"
+        # V1 e V2 leem o mesmo arquivo; muda só a forma do bloco.
+        return self.home / ".config" / "opencode" / "opencode.json"
 
     def test_cria_config_do_opencode_quando_nao_existe(self):
         self._nosso_config(
@@ -210,7 +211,8 @@ class ExportOpencode2Tests(unittest.TestCase):
         return self.home / ".config" / "opencode" / "opencode.json"
 
     @property
-    def _v1_path(self):
+    def _legacy_path(self):
+        # config.json é o nome antigo: os dois binários ainda leem, mas não é onde exportamos.
         return self.home / ".config" / "opencode" / "config.json"
 
     def _dados(self):
@@ -237,29 +239,45 @@ class ExportOpencode2Tests(unittest.TestCase):
             {"gemini/gemini-3.5-flash": {"name": "gemini/gemini-3.5-flash"}},
         )
 
-    def test_padrao_nao_toca_no_config_json_do_v1(self):
+    def test_padrao_nao_toca_no_config_json_legado(self):
         self._nosso_config(self._gemini())
-        self._v1_path.parent.mkdir(parents=True, exist_ok=True)
-        v1 = {"provider": {"openai": {"npm": "antigo"}}}
-        self._v1_path.write_text(json.dumps(v1), encoding="utf-8")
+        self._legacy_path.parent.mkdir(parents=True, exist_ok=True)
+        legado = {"provider": {"openai": {"npm": "antigo"}}}
+        self._legacy_path.write_text(json.dumps(legado), encoding="utf-8")
 
         export_provider()
 
         self.assertEqual(
-            json.loads(self._v1_path.read_text(encoding="utf-8")), v1,
-            "export V2 não pode alterar o config.json do V1",
+            json.loads(self._legacy_path.read_text(encoding="utf-8")), legado,
+            "export não pode alterar o config.json legado",
         )
         self.assertIn(PROVIDER_ID, self._dados()["providers"])
 
-    def test_harness_opencode_v1_mantem_formato_e_nao_cria_o_v2(self):
+    def test_harness_opencode_v1_grava_na_chave_provider_do_mesmo_arquivo(self):
         self._nosso_config(self._gemini())
         retornado, acao = export_provider(harness="opencode")
-        self.assertEqual(retornado, self._v1_path)
+        self.assertEqual(retornado, self._path)
         self.assertEqual(acao, "criado")
-        bloco = json.loads(self._v1_path.read_text(encoding="utf-8"))["provider"][PROVIDER_ID]
+        dados = self._dados()
+        bloco = dados["provider"][PROVIDER_ID]
         self.assertEqual(bloco["npm"], "@ai-sdk/openai-compatible")
         self.assertEqual(bloco["options"]["baseURL"], "http://127.0.0.1:9000/v1")
-        self.assertFalse(self._path.exists(), "export V1 não pode criar o opencode.json")
+        self.assertNotIn("providers", dados, "export V1 não pode criar a chave nativa V2")
+        self.assertFalse(self._legacy_path.exists())
+
+    def test_troca_de_harness_remove_a_entrada_antiga_do_outro_namespace(self):
+        self._nosso_config(self._gemini())
+        export_provider(harness="opencode")
+        export_provider()
+
+        dados = self._dados()
+        self.assertNotIn(PROVIDER_ID, dados.get("provider", {}))
+        self.assertIn(PROVIDER_ID, dados["providers"])
+
+        export_provider(harness="opencode")
+        dados = self._dados()
+        self.assertIn(PROVIDER_ID, dados["provider"])
+        self.assertNotIn(PROVIDER_ID, dados["providers"])
 
     def test_preserva_mcp_e_demais_chaves_do_arquivo_v2(self):
         self._nosso_config(self._gemini())
